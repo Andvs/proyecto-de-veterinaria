@@ -11,7 +11,6 @@ from django.conf import settings
 rut_valido = RegexValidator(r'^[0-9A-Za-z.\-]{7,12}$', 'RUT/DNI inválido')
 telefono_valido = RegexValidator(r'^\+?[0-9]{8,15}$', 'Teléfono inválido')
 
-
 # Create your models here.
 
 class Perfil(models.Model):
@@ -38,6 +37,9 @@ class Cliente(models.Model):
     fecha_registro = models.DateField(auto_now_add=True)
 
     def clean(self):
+        # si aún no le asignan perfil, no valides (se valida al guardar con perfil)
+        if not self.perfil_id:
+            return
         if self.perfil.tipo != 'CLIENTE':
             raise ValidationError('El perfil asociado debe ser de tipo Cliente.')
 
@@ -57,6 +59,9 @@ class Veterinario(models.Model):
     telefono_laboral = models.CharField(max_length=15, blank=True)
 
     def clean(self):
+        # evita acceder a self.perfil si no está puesto
+        if not self.perfil_id:
+            return
         if self.perfil.tipo != 'VETERINARIO':
             raise ValidationError('El perfil asociado debe ser de tipo Veterinario.')
 

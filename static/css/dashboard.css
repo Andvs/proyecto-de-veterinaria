@@ -1,0 +1,37 @@
+/* Sidebar look */
+.sidebar-card { background: #2e2e33; color:#fff; }
+.sidebar-link { color:#cfd2d6; padding:.6rem 1rem; border-radius:.5rem; }
+.sidebar-link:hover, .sidebar-link.active { background: rgba(255,255,255,.08); color:#fff; }
+
+/* Top mini “spark” areas (simple color blocks to emulate waves) */
+.gradient { height: 72px; }
+.spark-1 { background: linear-gradient(135deg,#ff3d77, #ffd1dc); }
+.spark-2 { background: linear-gradient(135deg,#ffb347,#ffd166); }
+.spark-3 { background: linear-gradient(135deg,#00c2ff,#3a86ff); }
+
+/* Mini calendar */
+.calendar-grid .cal-head strong { font-weight:600; }
+.cal-days { letter-spacing:.4px; }
+.cal-cells { display:grid; grid-template-columns: repeat(7,1fr); gap:.25rem; }
+.cal-cell { display:inline-grid; place-items:center; height:32px; border-radius:.5rem; background:#f1f3f5; }
+.cal-cell.cal-dot { position:relative; }
+.cal-cell.cal-dot::after{
+  content:""; position:absolute; bottom:6px; width:6px; height:6px; border-radius:50%; background:#0d6efd;
+}
+
+/* Radial meter (pure CSS) */
+.radial{
+  --size:120px; --bg:#e9ecef; --fg:#198754; --val:75;
+  width:var(--size); height:var(--size); border-radius:50%;
+  display:grid; place-items:center; margin:auto;
+  background:
+    conic-gradient(var(--fg) calc(var(--val)*1%), var(--bg) 0);
+  mask: radial-gradient(circle 48px, #0000 47px, #000 48px);
+  font-weight:700;
+}
+
+/* Chat mock */
+.chat-box{ background:#f8f9fa; border-radius:.75rem; padding:.75rem; overflow:auto; max-height:220px; }
+.msg{ max-width:75%; padding:.5rem .75rem; border-radius:1rem; margin:.25rem 0; }
+.msg.left{ background:#fff; border:1px solid #e9ecef; }
+.msg.right{ background:#0d6efd; color:#fff; margin-left:auto; }
