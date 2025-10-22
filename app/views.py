@@ -6,8 +6,9 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Q
 
-from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm
-from .models import Perfil, Mascota, Cliente, Recepcionista
+from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm
+from .models import Perfil, Mascota, Cliente, Recepcionista, Veterinario
+
 
 
 # ============================================================
@@ -17,14 +18,12 @@ from .models import Perfil, Mascota, Cliente, Recepcionista
 SESSION_KEY = "registro_parcial"
 
 def _borrar_datos_sesion(request):
-    """Limpia los datos guardados temporalmente"""
     if SESSION_KEY in request.session:
         del request.session[SESSION_KEY]
         request.session.modified = True
 
 
 def registrar_paso1(request):
-    """Paso 1: valida datos, pero NO guarda en la base de datos."""
     if request.method == "POST":
         if "cancel" in request.POST:
             _borrar_datos_sesion(request)
@@ -192,6 +191,18 @@ def dashboard(request):
 
 
 # ============================================================
+#             FUNCIONES AUXILIARES PARA DESHABILITAR/HABILITAR
+# ============================================================
+
+def _cambiar_estado_usuario(perfil, activo: bool):
+    user = perfil.user
+    if user.is_active != activo:
+        user.is_active = activo
+        user.save()
+    return user.is_active
+
+
+# ============================================================
 #             SECCIÓN MASCOTAS 🐾
 # ============================================================
 
@@ -235,11 +246,26 @@ def mascotas_editar(request, pk):
     return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Editar Mascota'})
 
 
-def mascotas_eliminar(request, pk):
+def mascotas_habilitar(request, pk):
     mascota = get_object_or_404(Mascota, pk=pk)
-    mascota.delete()
-    messages.info(request, 'Mascota eliminada correctamente.')
+    if not mascota.activo:
+        mascota.activo = True
+        mascota.save()
+        messages.success(request, f'Mascota "{mascota.nombre}" habilitada.')
+    else:
+        messages.info(request, f'La mascota "{mascota.nombre}" ya estaba activa.')
     return redirect('mascotas_list')
+
+def mascotas_deshabilitar(request, pk):
+    mascota = get_object_or_404(Mascota, pk=pk)
+    if mascota.activo:
+        mascota.activo = False
+        mascota.save()
+        messages.warning(request, f'Mascota "{mascota.nombre}" deshabilitada.')
+    else:
+        messages.info(request, f'La mascota "{mascota.nombre}" ya estaba inactiva.')
+    return redirect('mascotas_list')
+
 
 # ============================================================
 #             SECCIÓN CLIENTES 👤
@@ -271,17 +297,33 @@ def clientes_editar(request, pk):
     return render(request, 'clientes/form.html', {'form': form, 'titulo': 'Editar Cliente'})
 
 
-def clientes_eliminar(request, pk):
+def clientes_habilitar(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    cliente.delete()
-    messages.info(request, 'Cliente eliminado correctamente.')
+    user = cliente.perfil.user
+    if not user.is_active:
+        user.is_active = True
+        user.save()
+        messages.success(request, f'Cliente "{user.username}" habilitado.')
+    else:
+        messages.info(request, f'Cliente "{user.username}" ya estaba activo.')
     return redirect('clientes_list')
+
+def clientes_deshabilitar(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    user = cliente.perfil.user
+    if user.is_active:
+        user.is_active = False
+        user.save()
+        messages.warning(request, f'Cliente "{user.username}" deshabilitado.')
+    else:
+        messages.info(request, f'Cliente "{user.username}" ya estaba inactivo.')
+    return redirect('clientes_list')
+
 
 
 # ============================================================
 #             SECCIÓN VETERINARIOS 🩺
 # ============================================================
-from .models import Veterinario  # si ya está importado arriba, omite esta línea
 
 def veterinarios_list(request):
     q = request.GET.get('q', '').strip()
@@ -311,14 +353,32 @@ def veterinarios_editar(request, pk):
     return render(request, 'veterinarios/form.html', {'form': form, 'titulo': 'Editar Veterinario'})
 
 
-def veterinarios_eliminar(request, pk):
+def veterinarios_habilitar(request, pk):
     vet = get_object_or_404(Veterinario, pk=pk)
-    vet.delete()
-    messages.info(request, 'Veterinario eliminado correctamente.')
+    user = vet.perfil.user
+    if not user.is_active:
+        user.is_active = True
+        user.save()
+        messages.success(request, f'Veterinario "{user.username}" habilitado.')
+    else:
+        messages.info(request, f'Veterinario "{user.username}" ya estaba activo.')
     return redirect('veterinarios_list')
 
+def veterinarios_deshabilitar(request, pk):
+    vet = get_object_or_404(Veterinario, pk=pk)
+    user = vet.perfil.user
+    if user.is_active:
+        user.is_active = False
+        user.save()
+        messages.warning(request, f'Veterinario "{user.username}" deshabilitado.')
+    else:
+        messages.info(request, f'Veterinario "{user.username}" ya estaba inactivo.')
+    return redirect('veterinarios_list')
+
+
+
 # ============================================================
-#             SECCIÓN Recepcionista 🩺
+#             SECCIÓN RECEPCIONISTAS 🧾
 # ============================================================
 
 def recepcionistas_list(request):
@@ -328,12 +388,11 @@ def recepcionistas_list(request):
         recepcionistas = recepcionistas.filter(
             Q(nombre__icontains=q) |
             Q(apellido__icontains=q) |
-            Q(telefono__icontains=q) |
-            Q(correo__icontains=q) |
-            Q(direccion__icontains=q)
+            Q(telefono__icontains=q)
         )
     page_obj = Paginator(recepcionistas, 10).get_page(request.GET.get('page'))
     return render(request, 'recepcionistas/lista.html', {'page_obj': page_obj, 'q': q})
+
 
 def recepcionistas_editar(request, pk):
     rec = get_object_or_404(Recepcionista, pk=pk)
@@ -347,8 +406,25 @@ def recepcionistas_editar(request, pk):
         form = RecepcionistaForm(instance=rec)
     return render(request, 'recepcionistas/form.html', {'form': form, 'titulo': 'Editar Recepcionista'})
 
-def recepcionistas_eliminar(request, pk):
+
+def recepcionistas_habilitar(request, pk):
     rec = get_object_or_404(Recepcionista, pk=pk)
-    rec.delete()
-    messages.info(request, 'Recepcionista eliminado correctamente.')
+    user = rec.perfil.user
+    if not user.is_active:
+        user.is_active = True
+        user.save()
+        messages.success(request, f'Recepcionista "{user.username}" habilitado.')
+    else:
+        messages.info(request, f'Recepcionista "{user.username}" ya estaba activo.')
+    return redirect('recepcionistas_list')
+
+def recepcionistas_deshabilitar(request, pk):
+    rec = get_object_or_404(Recepcionista, pk=pk)
+    user = rec.perfil.user
+    if user.is_active:
+        user.is_active = False
+        user.save()
+        messages.warning(request, f'Recepcionista "{user.username}" deshabilitado.')
+    else:
+        messages.info(request, f'Recepcionista "{user.username}" ya estaba inactivo.')
     return redirect('recepcionistas_list')

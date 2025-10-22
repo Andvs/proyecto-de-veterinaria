@@ -1,84 +1,103 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="container py-3">
 
-    <form class="mb-3" method="get">
-        <div class="input-group">
-        <input name="q" value="{{ q }}" class="form-control" placeholder="Buscar recepcionista (nombre, apellido, teléfono, correo)">
-        <button class="btn btn-primary" type="submit">Buscar</button>
-        {% if q %}
-            <a class="btn btn-outline-secondary" href="/recepcionistas/">Limpiar</a>
-        {% endif %}
-        </div>
-    </form>
-
-    <div class="card shadow-sm">
-        <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Apellido</th>
-                <th>Teléfono</th>
-                <th>Correo</th>
-                <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% if page_obj.object_list %}
-                {% for r in page_obj.object_list %}
-                <tr>
-                <td>{{ r.id }}</td>
-                <td>{{ r.nombre }}</td>
-                <td>{{ r.apellido }}</td>
-                <td>{{ r.telefono }}</td>
-                <td>{{ r.correo }}</td>
-                <td class="text-end">
-                    <a href="/recepcionistas/{{ r.id }}/editar/" class="btn btn-sm btn-outline-primary">Editar</a>
-                    <a href="/recepcionistas/{{ r.id }}/eliminar/" class="btn btn-sm btn-outline-danger"
-                    onclick="return confirm('¿Eliminar este recepcionista?');">Eliminar</a>
-                </td>
-                </tr>
-                {% endfor %}
-            {% else %}
-                <tr><td colspan="6" class="text-center py-4">No hay recepcionistas registrados.</td></tr>
-            {% endif %}
-            </tbody>
-            </table>
-        </div>
-        </div>
+  <!-- Buscador -->
+  <form class="mb-3" method="get">
+    <div class="input-group">
+      <input name="q" value="{{ q }}" class="form-control"
+             placeholder="Buscar recepcionista (nombre, apellido, teléfono, dirección)">
+      <button class="btn btn-primary" type="submit">Buscar</button>
+      {% if q %}
+        <a class="btn btn-outline-secondary" href="{% url 'recepcionistas_list' %}">Limpiar</a>
+      {% endif %}
     </div>
+  </form>
 
-    {# Sin botón Registrar: el alta se hace en Usuarios #}
+  <!-- Lista -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Apellido</th>
+              <th>Teléfono</th>
+              <th>Dirección</th>
+              <th>Estado</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if page_obj.object_list %}
+              {% for r in page_obj.object_list %}
+                <tr>
+                  <td>{{ r.id }}</td>
+                  <td>{{ r.nombre }}</td>
+                  <td>{{ r.apellido }}</td>
+                  <td>{{ r.telefono }}</td>
+                  <td>{{ r.direccion }}</td>
+                  <td>
+                    {% if r.perfil.user.is_active %}
+                      <span class="badge bg-success">Activo</span>
+                    {% else %}
+                      <span class="badge bg-danger">Inactivo</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a href="{% url 'recepcionistas_editar' r.id %}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil-square"></i> Editar
+                    </a>
+                    {% if r.perfil.user.is_active %}
+                      <a href="{% url 'recepcionistas_deshabilitar' r.id %}" class="btn btn-sm btn-outline-warning"
+                         onclick="return confirm('¿Deshabilitar a {{ r.nombre }} {{ r.apellido }}?');">
+                        <i class="bi bi-person-x"></i> Deshabilitar
+                      </a>
+                    {% else %}
+                      <a href="{% url 'recepcionistas_habilitar' r.id %}" class="btn btn-sm btn-outline-success"
+                         onclick="return confirm('¿Habilitar a {{ r.nombre }} {{ r.apellido }}?');">
+                        <i class="bi bi-person-check"></i> Habilitar
+                      </a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="7" class="text-center py-4">No hay recepcionistas registrados.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-    {% if page_obj.paginator.num_pages > 1 %}
+  <!-- Paginación -->
+  {% if page_obj.paginator.num_pages > 1 %}
     <nav class="mt-3">
-        <ul class="pagination justify-content-center">
+      <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?q={{ q }}&page={{ page_obj.previous_page_number }}">«</a></li>
+          <li class="page-item"><a class="page-link" href="?q={{ q }}&page={{ page_obj.previous_page_number }}">«</a></li>
         {% else %}
-            <li class="page-item disabled"><span class="page-link">«</span></li>
+          <li class="page-item disabled"><span class="page-link">«</span></li>
         {% endif %}
 
         {% for p in page_obj.paginator.page_range %}
-            {% if p == page_obj.number %}
+          {% if p == page_obj.number %}
             <li class="page-item active"><span class="page-link">{{ p }}</span></li>
-            {% else %}
+          {% else %}
             <li class="page-item"><a class="page-link" href="?q={{ q }}&page={{ p }}">{{ p }}</a></li>
-            {% endif %}
+          {% endif %}
         {% endfor %}
 
         {% if page_obj.has_next %}
-            <li class="page-item"><a class="page-link" href="?q={{ q }}&page={{ page_obj.next_page_number }}">»</a></li>
+          <li class="page-item"><a class="page-link" href="?q={{ q }}&page={{ page_obj.next_page_number }}">»</a></li>
         {% else %}
-            <li class="page-item disabled"><span class="page-link">»</span></li>
+          <li class="page-item disabled"><span class="page-link">»</span></li>
         {% endif %}
-        </ul>
+      </ul>
     </nav>
-    {% endif %}
-
+  {% endif %}
 </div>
 {% endblock %}
