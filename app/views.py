@@ -1,12 +1,18 @@
-from django.shortcuts import render, redirect
-from app.forms import RegistroForm, VeterinarioForm, ClienteForm
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
-from .models import Perfil
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
+from django.db.models import Q
 
-# Create your views here.
+from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm
+from .models import Perfil, Mascota, Cliente, Recepcionista
+
+
+# ============================================================
+#             REGISTRO DE USUARIOS
+# ============================================================
 
 SESSION_KEY = "registro_parcial"
 
@@ -15,7 +21,7 @@ def _borrar_datos_sesion(request):
     if SESSION_KEY in request.session:
         del request.session[SESSION_KEY]
         request.session.modified = True
-        
+
 
 def registrar_paso1(request):
     """Paso 1: valida datos, pero NO guarda en la base de datos."""
@@ -27,7 +33,6 @@ def registrar_paso1(request):
 
         form = RegistroForm(request.POST)
         if form.is_valid():
-            # Guardamos los datos en sesión (no en BD)
             data = form.cleaned_data
             request.session[SESSION_KEY] = {
                 "username": data["username"],
@@ -52,7 +57,6 @@ def registrar_paso1(request):
 
 
 def registrar_paso2_vet(request):
-    """Paso 2: completar datos de veterinario. Se guarda todo solo si se completa correctamente."""
     datos = request.session.get(SESSION_KEY)
     if not datos or datos.get("tipo") != "VETERINARIO":
         messages.error(request, "Debes iniciar el registro desde el primer paso.")
@@ -67,20 +71,17 @@ def registrar_paso2_vet(request):
         form = VeterinarioForm(request.POST)
         if form.is_valid():
             try:
-                # 1️⃣ Crear usuario
                 user = User.objects.create_user(
                     username=datos["username"],
                     email=datos["email"],
                     password=datos["password1"]
                 )
-                # 2️⃣ Crear perfil
                 perfil = Perfil.objects.create(
                     user=user,
                     tipo="VETERINARIO",
                     rut=datos["rut"],
                     telefono=datos["telefono"]
                 )
-                # 3️⃣ Crear veterinario
                 veterinario = form.save(commit=False)
                 veterinario.perfil = perfil
                 veterinario.save()
@@ -99,7 +100,6 @@ def registrar_paso2_vet(request):
 
 
 def registrar_paso2_cli(request):
-    """Paso 2: completar datos de cliente."""
     datos = request.session.get(SESSION_KEY)
     if not datos or datos.get("tipo") != "CLIENTE":
         messages.error(request, "Debes iniciar el registro desde el primer paso.")
@@ -114,20 +114,17 @@ def registrar_paso2_cli(request):
         form = ClienteForm(request.POST)
         if form.is_valid():
             try:
-                # 1️⃣ Crear usuario
                 user = User.objects.create_user(
                     username=datos["username"],
                     email=datos["email"],
                     password=datos["password1"]
                 )
-                # 2️⃣ Crear perfil
                 perfil = Perfil.objects.create(
                     user=user,
                     tipo="CLIENTE",
                     rut=datos["rut"],
                     telefono=datos["telefono"]
                 )
-                # 3️⃣ Crear cliente
                 cliente = form.save(commit=False)
                 cliente.perfil = perfil
                 cliente.save()
@@ -146,7 +143,6 @@ def registrar_paso2_cli(request):
 
 
 def registrar_finalizar_sin_detalle(request):
-    """Para tipos sin paso 2 (admin o recepcionista)."""
     datos = request.session.get(SESSION_KEY)
     if not datos:
         messages.error(request, "Debes iniciar el registro desde el primer paso.")
@@ -177,18 +173,182 @@ def registrar_finalizar_sin_detalle(request):
 def iniciarSesion(request):
     if request.method == "GET":
         return render(request, "usuario/login.html")
-        
+
     elif request.method == "POST":
         uname = request.POST.get("username")
         passw = request.POST.get("password")
-        
+
         user = authenticate(request, username=uname, password=passw)
-        
+
         if user:
             login(request, user)
             return redirect("dashboard")
         else:
             return render(request, "usuario/login.html", {"error": "Credenciales incorrectas"})
 
+
 def dashboard(request):
     return render(request, "usuario/dashboard.html")
+
+
+# ============================================================
+#             SECCIÓN MASCOTAS 🐾
+# ============================================================
+
+def mascotas_list(request):
+    q = request.GET.get('q', '').strip()
+    mascotas = Mascota.objects.select_related('dueno').order_by('id')
+    if q:
+        mascotas = mascotas.filter(
+            Q(nombre__icontains=q) |
+            Q(especie__icontains=q) |
+            Q(raza__icontains=q) |
+            Q(dueno__nombre__icontains=q) |
+            Q(dueno__apellido__icontains=q)
+        )
+    page_obj = Paginator(mascotas, 10).get_page(request.GET.get('page'))
+    return render(request, 'mascotas/lista.html', {'page_obj': page_obj, 'q': q})
+
+
+def mascotas_crear(request):
+    if request.method == 'POST':
+        form = MascotaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Mascota registrada correctamente.')
+            return redirect('mascotas_list')
+    else:
+        form = MascotaForm()
+    return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Registrar Mascota'})
+
+
+def mascotas_editar(request, pk):
+    mascota = get_object_or_404(Mascota, pk=pk)
+    if request.method == 'POST':
+        form = MascotaForm(request.POST, instance=mascota)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Mascota actualizada correctamente.')
+            return redirect('mascotas_list')
+    else:
+        form = MascotaForm(instance=mascota)
+    return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Editar Mascota'})
+
+
+def mascotas_eliminar(request, pk):
+    mascota = get_object_or_404(Mascota, pk=pk)
+    mascota.delete()
+    messages.info(request, 'Mascota eliminada correctamente.')
+    return redirect('mascotas_list')
+
+# ============================================================
+#             SECCIÓN CLIENTES 👤
+# ============================================================
+
+def clientes_list(request):
+    q = request.GET.get('q', '').strip()
+    clientes = Cliente.objects.all().order_by('id')
+    if q:
+        clientes = clientes.filter(
+            Q(nombre__icontains=q) |
+            Q(apellido__icontains=q) |
+            Q(direccion__icontains=q)
+        )
+    page_obj = Paginator(clientes, 10).get_page(request.GET.get('page'))
+    return render(request, 'clientes/lista.html', {'page_obj': page_obj, 'q': q})
+
+
+def clientes_editar(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    if request.method == 'POST':
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Cliente actualizado correctamente.')
+            return redirect('clientes_list')
+    else:
+        form = ClienteForm(instance=cliente)
+    return render(request, 'clientes/form.html', {'form': form, 'titulo': 'Editar Cliente'})
+
+
+def clientes_eliminar(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    cliente.delete()
+    messages.info(request, 'Cliente eliminado correctamente.')
+    return redirect('clientes_list')
+
+
+# ============================================================
+#             SECCIÓN VETERINARIOS 🩺
+# ============================================================
+from .models import Veterinario  # si ya está importado arriba, omite esta línea
+
+def veterinarios_list(request):
+    q = request.GET.get('q', '').strip()
+    veterinarios = Veterinario.objects.all().order_by('id')
+    if q:
+        veterinarios = veterinarios.filter(
+            Q(nombre__icontains=q) |
+            Q(apellido__icontains=q) |
+            Q(especialidad__icontains=q) |
+            Q(licencia_profesional__icontains=q) |
+            Q(telefono_laboral__icontains=q)
+        )
+    page_obj = Paginator(veterinarios, 10).get_page(request.GET.get('page'))
+    return render(request, 'veterinarios/lista.html', {'page_obj': page_obj, 'q': q})
+
+
+def veterinarios_editar(request, pk):
+    vet = get_object_or_404(Veterinario, pk=pk)
+    if request.method == 'POST':
+        form = VeterinarioForm(request.POST, instance=vet)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Veterinario actualizado correctamente.')
+            return redirect('veterinarios_list')
+    else:
+        form = VeterinarioForm(instance=vet)
+    return render(request, 'veterinarios/form.html', {'form': form, 'titulo': 'Editar Veterinario'})
+
+
+def veterinarios_eliminar(request, pk):
+    vet = get_object_or_404(Veterinario, pk=pk)
+    vet.delete()
+    messages.info(request, 'Veterinario eliminado correctamente.')
+    return redirect('veterinarios_list')
+
+# ============================================================
+#             SECCIÓN Recepcionista 🩺
+# ============================================================
+
+def recepcionistas_list(request):
+    q = request.GET.get('q', '').strip()
+    recepcionistas = Recepcionista.objects.all().order_by('id')
+    if q:
+        recepcionistas = recepcionistas.filter(
+            Q(nombre__icontains=q) |
+            Q(apellido__icontains=q) |
+            Q(telefono__icontains=q) |
+            Q(correo__icontains=q) |
+            Q(direccion__icontains=q)
+        )
+    page_obj = Paginator(recepcionistas, 10).get_page(request.GET.get('page'))
+    return render(request, 'recepcionistas/lista.html', {'page_obj': page_obj, 'q': q})
+
+def recepcionistas_editar(request, pk):
+    rec = get_object_or_404(Recepcionista, pk=pk)
+    if request.method == 'POST':
+        form = RecepcionistaForm(request.POST, instance=rec)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Recepcionista actualizado correctamente.')
+            return redirect('recepcionistas_list')
+    else:
+        form = RecepcionistaForm(instance=rec)
+    return render(request, 'recepcionistas/form.html', {'form': form, 'titulo': 'Editar Recepcionista'})
+
+def recepcionistas_eliminar(request, pk):
+    rec = get_object_or_404(Recepcionista, pk=pk)
+    rec.delete()
+    messages.info(request, 'Recepcionista eliminado correctamente.')
+    return redirect('recepcionistas_list')

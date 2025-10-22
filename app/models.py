@@ -135,3 +135,22 @@ class Consulta(models.Model):
 
     class Meta:
         ordering = ['-fecha_consulta']
+
+
+class Recepcionista(models.Model):
+    perfil = models.OneToOneField(Perfil, on_delete=models.CASCADE, related_name='recepcionista')
+    nombre = models.CharField(max_length=45)
+    apellido = models.CharField(max_length=45)
+    telefono = models.CharField(max_length=15, blank=True)
+
+    def clean(self):
+        if not self.perfil_id:
+            return
+        if self.perfil.tipo != 'RECEPCIONISTA':
+            raise ValidationError('El perfil asociado debe ser de tipo Recepcionista.')
+
+    def __str__(self):
+        return f'{self.nombre} {self.apellido}'
+
+    class Meta:
+        ordering = ['apellido', 'nombre']
