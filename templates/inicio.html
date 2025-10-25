@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex">
+      <!-- 🌙 SIDEBAR -->
+  <nav class="sidebar d-flex flex-column flex-shrink-0 p-3 text-bg-dark">
+    <!-- Encabezado -->
+    <a href="{% url 'dashboard' %}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+      <i class="bi bi-speedometer2 fs-4 me-2"></i>
+      <span class="fs-5 fw-semibold">Mi Sistema</span>
+    </a>
+
+    <!-- Usuario actual -->
+    <div class="text-white small mb-2 mt-2">
+      {% if request.user.is_authenticated %}
+        <i class="bi bi-person-circle me-1"></i>
+        {{ request.user.username }}
+        {% if request.user.perfil %}
+          <div class="text-secondary">{{ request.user.perfil.tipo }}</div>
+        {% endif %}
+      {% else %}
+        Invitado
+      {% endif %}
+    </div>
+
+    <hr>
+
+    <!-- Menú principal -->
+    <ul class="nav nav-pills flex-column">
+
+      <!-- Opción siempre visible -->
+      <li>
+        <a href="{% url 'dashboard' %}" class="nav-link text-white {% if '/inicio/' in request.path %}active bg-primary{% endif %}">
+          <i class="bi bi-house me-2"></i>Dashboard
+        </a>
+      </li>
+
+      <!-- 🔹 ADMINISTRADOR -->
+      {% if request.user.is_authenticated and request.user.perfil and request.user.perfil.tipo == 'ADMINISTRADOR' %}
+        <li>
+          <a href="{% url 'registrar_paso1' %}" class="nav-link text-white {% if '/registro/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-person-add me-2"></i>Registrar Usuario
+          </a>
+        </li>
+        <li>
+          <a href="/veterinarios/" class="nav-link text-white {% if '/veterinarios/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-trophy me-2"></i>Veterinarios
+          </a>
+        </li>
+        <li>
+          <a href="/recepcionistas/" class="nav-link text-white {% if '/recepcionistas/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-grid me-2"></i>Recepcionistas
+          </a>
+        </li>
+        <li>
+          <a href="/clientes/" class="nav-link text-white {% if '/clientes/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-person-badge me-2"></i>Clientes
+          </a>
+        </li>
+        <li>
+          <a href="/mascotas/" class="nav-link text-white {% if '/mascotas/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-paw me-2"></i>Mascotas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar-week me-2"></i>Todas las Citas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-heart-pulse me-2"></i>Consultas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-cash-coin me-2"></i>Reportes Financieros
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- 🔹 RECEPCIONISTA -->
+      {% if request.user.is_authenticated and request.user.perfil and request.user.perfil.tipo == 'RECEPCIONISTA' %}
+        <li>
+          <a href="/clientes/" class="nav-link text-white">
+            <i class="bi bi-person-plus me-2"></i>Registrar Clientes
+          </a>
+        </li>
+        <li>
+          <a href="/mascotas/" class="nav-link text-white {% if '/mascotas/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-paw me-2"></i>Registar Mascotas</a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar-plus me-2"></i>Agendar Citas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar-check me-2"></i>Modificar/Cancelar Citas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar3-week me-2"></i>Agenda Veterinarios
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- 🔹 VETERINARIO -->
+      {% if request.user.is_authenticated and request.user.perfil and request.user.perfil.tipo == 'VETERINARIO' %}
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar-check me-2"></i>Mis Citas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-heart-pulse me-2"></i>Registrar Consulta
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-clipboard-pulse me-2"></i>Historial Médico
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- 🔹 CLIENTE -->
+      {% if request.user.is_authenticated and request.user.perfil and request.user.perfil.tipo == 'CLIENTE' %}
+        <li>
+          <a href="/mascotas/" class="nav-link text-white {% if '/mascotas/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-paw me-2"></i>Mis Mascotas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-calendar-week me-2"></i>Mis Citas
+          </a>
+        </li>
+        <li>
+          <a href="#" class="nav-link text-white">
+            <i class="bi bi-journal-medical me-2"></i>Historial Médico
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+
+    <hr>
+
+    <!-- Botón Cerrar Sesión -->
+    {% if request.user.is_authenticated %}
+      <div class="mt-1 px-2">
+        <a href="{% url 'logout' %}" class="btn btn-outline-light w-100">
+          <i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+        </a>
+      </div>
+    {% endif %}
+  </nav>
+
+  <!-- 📋 CONTENIDO PRINCIPAL -->
+  <div class="content flex-grow-1 p-4">
+    {% block main %}{% endblock main %}
+  </div>
+</div>
+{% endblock content %}

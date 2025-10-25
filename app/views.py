@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
@@ -8,7 +8,6 @@ from django.db.models import Q
 
 from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm
 from .models import Perfil, Mascota, Cliente, Recepcionista, Veterinario
-
 
 
 # ============================================================
@@ -21,7 +20,6 @@ def _borrar_datos_sesion(request):
     if SESSION_KEY in request.session:
         del request.session[SESSION_KEY]
         request.session.modified = True
-
 
 def registrar_paso1(request):
     if request.method == "POST":
@@ -47,55 +45,14 @@ def registrar_paso1(request):
                 return redirect("registrar_paso2_vet")
             elif data["tipo"] == "CLIENTE":
                 return redirect("registrar_paso2_cli")
+            elif data["tipo"] == "RECEPCIONISTA":
+                return redirect("registrar_paso2_recep")
             else:
                 return redirect("registrar_finalizar_sin_detalle")
     else:
         form = RegistroForm()
 
     return render(request, "usuario/registro.html", {"form": form})
-
-
-def registrar_paso2_vet(request):
-    datos = request.session.get(SESSION_KEY)
-    if not datos or datos.get("tipo") != "VETERINARIO":
-        messages.error(request, "Debes iniciar el registro desde el primer paso.")
-        return redirect("registrar_paso1")
-
-    if request.method == "POST":
-        if "cancel" in request.POST:
-            _borrar_datos_sesion(request)
-            messages.info(request, "Registro cancelado.")
-            return redirect("dashboard")
-
-        form = VeterinarioForm(request.POST)
-        if form.is_valid():
-            try:
-                user = User.objects.create_user(
-                    username=datos["username"],
-                    email=datos["email"],
-                    password=datos["password1"]
-                )
-                perfil = Perfil.objects.create(
-                    user=user,
-                    tipo="VETERINARIO",
-                    rut=datos["rut"],
-                    telefono=datos["telefono"]
-                )
-                veterinario = form.save(commit=False)
-                veterinario.perfil = perfil
-                veterinario.save()
-
-                _borrar_datos_sesion(request)
-                login(request, user)
-                messages.success(request, "¡Registro completado con éxito!")
-                return redirect("dashboard")
-
-            except Exception as e:
-                messages.error(request, f"Ocurrió un error al registrar: {e}")
-    else:
-        form = VeterinarioForm()
-
-    return render(request, "usuario/completar_veterinario.html", {"form": form})
 
 
 def registrar_paso2_cli(request):
@@ -129,8 +86,7 @@ def registrar_paso2_cli(request):
                 cliente.save()
 
                 _borrar_datos_sesion(request)
-                login(request, user)
-                messages.success(request, "¡Registro completado con éxito!")
+                messages.success(request, f"Usuario '{user.username}' registrado correctamente.")
                 return redirect("dashboard")
 
             except Exception as e:
@@ -139,6 +95,90 @@ def registrar_paso2_cli(request):
         form = ClienteForm()
 
     return render(request, "usuario/completar_cliente.html", {"form": form})
+
+
+def registrar_paso2_recep(request):
+    datos = request.session.get(SESSION_KEY)
+    if not datos or datos.get("tipo") != "RECEPCIONISTA":
+        messages.error(request, "Debes iniciar el registro desde el primer paso.")
+        return redirect("registrar_paso1")
+
+    if request.method == "POST":
+        if "cancel" in request.POST:
+            _borrar_datos_sesion(request)
+            messages.info(request, "Registro cancelado.")
+            return redirect("dashboard")
+
+        form = RecepcionistaForm(request.POST)
+        if form.is_valid():
+            try:
+                user = User.objects.create_user(
+                    username=datos["username"],
+                    email=datos["email"],
+                    password=datos["password1"],
+                )
+                perfil = Perfil.objects.create(
+                    user=user,
+                    tipo="RECEPCIONISTA",
+                    rut=datos["rut"],
+                    telefono=datos["telefono"],
+                )
+                recep = form.save(commit=False)
+                recep.perfil = perfil
+                recep.save()
+
+                _borrar_datos_sesion(request)
+                messages.success(request, f"Usuario '{user.username}' registrado correctamente.")
+                return redirect("dashboard")
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error al registrar: {e}")
+    else:
+        form = RecepcionistaForm()
+
+    return render(request, "usuario/completar_recepcionista.html", {"form": form})
+
+
+def registrar_paso2_vet(request):
+    """Paso 2: completar datos de veterinario. Se guarda todo solo si se completa correctamente."""
+    datos = request.session.get(SESSION_KEY)
+    if not datos or datos.get("tipo") != "VETERINARIO":
+        messages.error(request, "Debes iniciar el registro desde el primer paso.")
+        return redirect("registrar_paso1")
+
+    if request.method == "POST":
+        if "cancel" in request.POST:
+            _borrar_datos_sesion(request)
+            messages.info(request, "Registro cancelado.")
+            return redirect("dashboard")
+
+        form = VeterinarioForm(request.POST)
+        if form.is_valid():
+            try:
+                user = User.objects.create_user(
+                    username=datos["username"],
+                    email=datos["email"],
+                    password=datos["password1"]
+                )
+                perfil = Perfil.objects.create(
+                    user=user,
+                    tipo="VETERINARIO",
+                    rut=datos["rut"],
+                    telefono=datos["telefono"]
+                )
+                veterinario = form.save(commit=False)
+                veterinario.perfil = perfil
+                veterinario.save()
+
+                _borrar_datos_sesion(request)
+                messages.success(request, f"Usuario '{user.username}' registrado correctamente.")
+                return redirect("dashboard")
+
+            except Exception as e:
+                messages.error(request, f"Ocurrió un error al registrar: {e}")
+    else:
+        form = VeterinarioForm()
+
+    return render(request, "usuario/completar_veterinario.html", {"form": form})
 
 
 def registrar_finalizar_sin_detalle(request):
@@ -160,8 +200,7 @@ def registrar_finalizar_sin_detalle(request):
             telefono=datos["telefono"]
         )
         _borrar_datos_sesion(request)
-        login(request, user)
-        messages.success(request, "¡Registro completado!")
+        messages.success(request, f"Usuario '{user.username}' registrado correctamente.")
         return redirect("dashboard")
 
     except Exception as e:
@@ -169,25 +208,32 @@ def registrar_finalizar_sin_detalle(request):
         return redirect("registrar_paso1")
 
 
-def iniciarSesion(request):
-    if request.method == "GET":
-        return render(request, "usuario/login.html")
+# ============================================================
+#             LOGIN / LOGOUT / DASHBOARD
+# ============================================================
 
-    elif request.method == "POST":
+def iniciarSesion(request):
+    if request.method == "POST":
         uname = request.POST.get("username")
         passw = request.POST.get("password")
-
         user = authenticate(request, username=uname, password=passw)
-
         if user:
             login(request, user)
-            return redirect("dashboard")
-        else:
-            return render(request, "usuario/login.html", {"error": "Credenciales incorrectas"})
+            messages.info(request, "Has iniciado sesión correctamente.")
+            return redirect("dashboard")  # redirección simple
+        messages.error(request, "Credenciales incorrectas.")
+    return render(request, "usuario/login.html")
 
 
+def cerrar_sesion(request):
+    logout(request)  # elimina la sesión actual del usuario
+    messages.info(request, "Has cerrado sesión correctamente.")
+    return redirect("iniciarSesion")
+
+
+@login_required
 def dashboard(request):
-    return render(request, "usuario/dashboard.html")
+    return render(request, "usuario/dashboard.html")  # fallback
 
 
 # ============================================================
@@ -206,9 +252,23 @@ def _cambiar_estado_usuario(perfil, activo: bool):
 #             SECCIÓN MASCOTAS 🐾
 # ============================================================
 
+@login_required
 def mascotas_list(request):
+    """
+    Recepcionista/Admin: ven todas las mascotas.
+    Cliente: solo ve sus propias mascotas.
+    """
+    tipo = request.user.perfil.tipo
     q = request.GET.get('q', '').strip()
-    mascotas = Mascota.objects.select_related('dueno').order_by('id')
+
+    if tipo == "CLIENTE":
+        mascotas = Mascota.objects.filter(dueno__perfil=request.user.perfil).order_by('id')
+    elif tipo in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        mascotas = Mascota.objects.select_related('dueno').order_by('id')
+    else:
+        messages.error(request, "No tienes permisos para ver mascotas.")
+        return redirect("dashboard")
+
     if q:
         mascotas = mascotas.filter(
             Q(nombre__icontains=q) |
@@ -221,11 +281,29 @@ def mascotas_list(request):
     return render(request, 'mascotas/lista.html', {'page_obj': page_obj, 'q': q})
 
 
+@login_required
 def mascotas_crear(request):
+    """
+    Recepcionista/Admin: pueden crear mascotas para cualquier cliente.
+    Cliente: puede crear solo sus propias mascotas (forzamos el dueño).
+    """
+    tipo = request.user.perfil.tipo
+
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR", "CLIENTE"]:
+        messages.error(request, "No tienes permisos para registrar mascotas.")
+        return redirect("dashboard")
+
     if request.method == 'POST':
         form = MascotaForm(request.POST)
         if form.is_valid():
-            form.save()
+            mascota = form.save(commit=False)
+            if tipo == "CLIENTE":
+                cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+                if not cliente:
+                    messages.error(request, "Tu perfil no está asociado a un cliente.")
+                    return redirect('mascotas_list')
+                mascota.dueno = cliente  # el cliente solo puede crear para sí mismo
+            mascota.save()
             messages.success(request, 'Mascota registrada correctamente.')
             return redirect('mascotas_list')
     else:
@@ -233,12 +311,31 @@ def mascotas_crear(request):
     return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Registrar Mascota'})
 
 
+@login_required
 def mascotas_editar(request, pk):
+    """
+    Recepcionista/Admin: pueden editar cualquier mascota.
+    Cliente: solo puede editar mascotas propias y no puede cambiar el dueño.
+    """
+    tipo = request.user.perfil.tipo
     mascota = get_object_or_404(Mascota, pk=pk)
+
+    if tipo == "CLIENTE":
+        es_suya = (mascota.dueno and mascota.dueno.perfil_id == request.user.perfil.id)
+        if not es_suya:
+            messages.error(request, "No puedes editar mascotas que no son tuyas.")
+            return redirect('mascotas_list')
+    elif tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para editar mascotas.")
+        return redirect('dashboard')
+
     if request.method == 'POST':
         form = MascotaForm(request.POST, instance=mascota)
         if form.is_valid():
-            form.save()
+            mascota_edit = form.save(commit=False)
+            if tipo == "CLIENTE":
+                mascota_edit.dueno = mascota.dueno  # cliente no puede reasignar dueño
+            mascota_edit.save()
             messages.success(request, 'Mascota actualizada correctamente.')
             return redirect('mascotas_list')
     else:
@@ -246,7 +343,16 @@ def mascotas_editar(request, pk):
     return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Editar Mascota'})
 
 
+@login_required
 def mascotas_habilitar(request, pk):
+    """
+    Operación administrativa: solo Recepcionista y Admin.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para habilitar mascotas.")
+        return redirect('dashboard')
+
     mascota = get_object_or_404(Mascota, pk=pk)
     if not mascota.activo:
         mascota.activo = True
@@ -256,7 +362,17 @@ def mascotas_habilitar(request, pk):
         messages.info(request, f'La mascota "{mascota.nombre}" ya estaba activa.')
     return redirect('mascotas_list')
 
+
+@login_required
 def mascotas_deshabilitar(request, pk):
+    """
+    Operación administrativa: solo Recepcionista y Admin.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para deshabilitar mascotas.")
+        return redirect('dashboard')
+
     mascota = get_object_or_404(Mascota, pk=pk)
     if mascota.activo:
         mascota.activo = False
@@ -270,8 +386,16 @@ def mascotas_deshabilitar(request, pk):
 # ============================================================
 #             SECCIÓN CLIENTES 👤
 # ============================================================
-
+@login_required
 def clientes_list(request):
+    """
+    Solo Administrador y Recepcionista pueden ver la lista de clientes.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
+        messages.error(request, "No tienes permisos para ver los clientes.")
+        return redirect("dashboard")
+
     q = request.GET.get('q', '').strip()
     clientes = Cliente.objects.all().order_by('id')
     if q:
@@ -284,7 +408,16 @@ def clientes_list(request):
     return render(request, 'clientes/lista.html', {'page_obj': page_obj, 'q': q})
 
 
+@login_required
 def clientes_editar(request, pk):
+    """
+    Solo Administrador y Recepcionista pueden editar clientes.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
+        messages.error(request, "No tienes permisos para editar clientes.")
+        return redirect("dashboard")
+
     cliente = get_object_or_404(Cliente, pk=pk)
     if request.method == 'POST':
         form = ClienteForm(request.POST, instance=cliente)
@@ -297,7 +430,16 @@ def clientes_editar(request, pk):
     return render(request, 'clientes/form.html', {'form': form, 'titulo': 'Editar Cliente'})
 
 
+@login_required
 def clientes_habilitar(request, pk):
+    """
+    Solo Administrador y Recepcionista pueden habilitar clientes.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
+        messages.error(request, "No tienes permisos para habilitar clientes.")
+        return redirect("dashboard")
+
     cliente = get_object_or_404(Cliente, pk=pk)
     user = cliente.perfil.user
     if not user.is_active:
@@ -308,7 +450,17 @@ def clientes_habilitar(request, pk):
         messages.info(request, f'Cliente "{user.username}" ya estaba activo.')
     return redirect('clientes_list')
 
+
+@login_required
 def clientes_deshabilitar(request, pk):
+    """
+    Solo Administrador y Recepcionista pueden deshabilitar clientes.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
+        messages.error(request, "No tienes permisos para deshabilitar clientes.")
+        return redirect("dashboard")
+
     cliente = get_object_or_404(Cliente, pk=pk)
     user = cliente.perfil.user
     if user.is_active:
@@ -320,12 +472,20 @@ def clientes_deshabilitar(request, pk):
     return redirect('clientes_list')
 
 
-
 # ============================================================
 #             SECCIÓN VETERINARIOS 🩺
 # ============================================================
 
+@login_required
 def veterinarios_list(request):
+    """
+    Solo Administrador puede ver la lista completa de veterinarios.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "Solo el administrador puede gestionar veterinarios.")
+        return redirect("dashboard")
+
     q = request.GET.get('q', '').strip()
     veterinarios = Veterinario.objects.all().order_by('id')
     if q:
@@ -340,7 +500,16 @@ def veterinarios_list(request):
     return render(request, 'veterinarios/lista.html', {'page_obj': page_obj, 'q': q})
 
 
+@login_required
 def veterinarios_editar(request, pk):
+    """
+    Solo Administrador puede editar veterinarios.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para editar veterinarios.")
+        return redirect("dashboard")
+
     vet = get_object_or_404(Veterinario, pk=pk)
     if request.method == 'POST':
         form = VeterinarioForm(request.POST, instance=vet)
@@ -353,7 +522,16 @@ def veterinarios_editar(request, pk):
     return render(request, 'veterinarios/form.html', {'form': form, 'titulo': 'Editar Veterinario'})
 
 
+@login_required
 def veterinarios_habilitar(request, pk):
+    """
+    Solo Administrador puede habilitar veterinarios.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para habilitar veterinarios.")
+        return redirect("dashboard")
+
     vet = get_object_or_404(Veterinario, pk=pk)
     user = vet.perfil.user
     if not user.is_active:
@@ -364,7 +542,17 @@ def veterinarios_habilitar(request, pk):
         messages.info(request, f'Veterinario "{user.username}" ya estaba activo.')
     return redirect('veterinarios_list')
 
+
+@login_required
 def veterinarios_deshabilitar(request, pk):
+    """
+    Solo Administrador puede deshabilitar veterinarios.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para deshabilitar veterinarios.")
+        return redirect("dashboard")
+
     vet = get_object_or_404(Veterinario, pk=pk)
     user = vet.perfil.user
     if user.is_active:
@@ -376,12 +564,20 @@ def veterinarios_deshabilitar(request, pk):
     return redirect('veterinarios_list')
 
 
-
 # ============================================================
 #             SECCIÓN RECEPCIONISTAS 🧾
 # ============================================================
 
+@login_required
 def recepcionistas_list(request):
+    """
+    Solo Administrador puede ver la lista completa de recepcionistas.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "Solo el administrador puede gestionar recepcionistas.")
+        return redirect("dashboard")
+
     q = request.GET.get('q', '').strip()
     recepcionistas = Recepcionista.objects.all().order_by('id')
     if q:
@@ -394,7 +590,16 @@ def recepcionistas_list(request):
     return render(request, 'recepcionistas/lista.html', {'page_obj': page_obj, 'q': q})
 
 
+@login_required
 def recepcionistas_editar(request, pk):
+    """
+    Solo Administrador puede editar recepcionistas.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para editar recepcionistas.")
+        return redirect("dashboard")
+
     rec = get_object_or_404(Recepcionista, pk=pk)
     if request.method == 'POST':
         form = RecepcionistaForm(request.POST, instance=rec)
@@ -407,7 +612,16 @@ def recepcionistas_editar(request, pk):
     return render(request, 'recepcionistas/form.html', {'form': form, 'titulo': 'Editar Recepcionista'})
 
 
+@login_required
 def recepcionistas_habilitar(request, pk):
+    """
+    Solo Administrador puede habilitar recepcionistas.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para habilitar recepcionistas.")
+        return redirect("dashboard")
+
     rec = get_object_or_404(Recepcionista, pk=pk)
     user = rec.perfil.user
     if not user.is_active:
@@ -418,7 +632,17 @@ def recepcionistas_habilitar(request, pk):
         messages.info(request, f'Recepcionista "{user.username}" ya estaba activo.')
     return redirect('recepcionistas_list')
 
+
+@login_required
 def recepcionistas_deshabilitar(request, pk):
+    """
+    Solo Administrador puede deshabilitar recepcionistas.
+    """
+    tipo = request.user.perfil.tipo
+    if tipo != "ADMINISTRADOR":
+        messages.error(request, "No tienes permisos para deshabilitar recepcionistas.")
+        return redirect("dashboard")
+
     rec = get_object_or_404(Recepcionista, pk=pk)
     user = rec.perfil.user
     if user.is_active:

@@ -15,7 +15,7 @@ telefono_valido = RegexValidator(r'^\+?[0-9]{8,15}$', 'Teléfono inválido')
 
 class Perfil(models.Model):
     tipo = EnumField(
-        choices=['ADMINISTRADOR', 'VETERINARIO', 'RECEPCIONISTA', 'CLIENTE'],  
+        choices=['ADMINISTRADOR', 'VETERINARIO', 'RECEPCIONISTA', 'CLIENTE'],  # ← corregido
         default='CLIENTE'
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='perfil')
@@ -98,9 +98,9 @@ class Mascota(models.Model):
 class Cita(models.Model):
     
     estado = EnumField(
-        choices=['PROGRAMADO', 'COMPPLETADO', 'CANC'],  
-        default='PROGRAMADO'
-    )
+    choices=['PROGRAMADO', 'COMPLETADO', 'CANCELADO'],  # corregido
+    default='PROGRAMADO'
+)
 
     mascota = models.ForeignKey(Mascota, on_delete=models.CASCADE, related_name='citas')
     veterinario = models.ForeignKey(Veterinario, on_delete=models.PROTECT, related_name='citas')

@@ -16,6 +16,7 @@ urlpatterns = [
     path('registro/vet/', v.registrar_paso2_vet, name="registrar_paso2_vet"),
     path('registro/cli/', v.registrar_paso2_cli, name="registrar_paso2_cli"),
     path('registro/final/', v.registrar_finalizar_sin_detalle, name="registrar_finalizar_sin_detalle"),
+    path("registro/recep/", v.registrar_paso2_recep, name="registrar_paso2_recep"),
 
     # --- Mascotas ---
     path('mascotas/', v.mascotas_list, name='mascotas_list'),
@@ -41,6 +42,10 @@ urlpatterns = [
     path('recepcionistas/<int:pk>/editar/', v.recepcionistas_editar, name='recepcionistas_editar'),
     path('recepcionistas/<int:pk>/habilitar/', v.recepcionistas_habilitar, name='recepcionistas_habilitar'),
     path('recepcionistas/<int:pk>/deshabilitar/', v.recepcionistas_deshabilitar, name='recepcionistas_deshabilitar'),
-
+    
+    # ---cerrar sesión 
+    
+    path("logout/", v.cerrar_sesion, name="logout"),
+    
 
 ]
