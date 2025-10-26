@@ -1,0 +1,52 @@
+{% extends "inicio.html" %}
+{% block main %}
+<div class="container py-3">
+    <h4 class="mb-3"><i class="bi bi-clipboard-pulse"></i> Historial Médico de Mis Mascotas</h4>
+    
+    {% if mascotas %}
+        <p class="text-muted">Selecciona una mascota para ver su historial médico completo:</p>
+        
+        <div class="row">
+            {% for mascota in mascotas %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-paw-fill text-primary"></i> {{ mascota.nombre }}
+                            </h5>
+                            <p class="card-text mb-2">
+                                <strong>Especie:</strong> {{ mascota.especie }}<br>
+                                <strong>Raza:</strong> {{ mascota.raza|default:"No especificada" }}<br>
+                                <strong>Sexo:</strong> {% if mascota.sexo == 'M' %}Macho{% else %}Hembra{% endif %}<br>
+                                {% if mascota.fecha_nacimiento %}
+                                    <strong>Edad:</strong> 
+                                    {% now "Y" as current_year %}
+                                    {{ current_year|add:"-1"|add:mascota.fecha_nacimiento.year|default:"0" }} años
+                                {% endif %}
+                            </p>
+                            
+                            {% with total_consultas=mascota.citas.all|length %}
+                                <p class="text-muted small mb-3">
+                                    <i class="bi bi-calendar-check"></i> 
+                                    {{ total_consultas }} cita{% if total_consultas != 1 %}s{% endif %} registrada{% if total_consultas != 1 %}s{% endif %}
+                                </p>
+                            {% endwith %}
+                            
+                            <a href="{% url 'historial_medico' mascota.id %}" class="btn btn-primary w-100">
+                                <i class="bi bi-journal-medical"></i> Ver Historial Completo
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No tienes mascotas registradas actualmente.
+            {% if request.user.perfil.tipo == 'CLIENTE' %}
+                <a href="{% url 'mascotas_crear' %}" class="alert-link">Registra tu primera mascota aquí</a>.
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

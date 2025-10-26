@@ -5,9 +5,12 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.utils import timezone
+from datetime import timedelta
+    
 
-from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm
-from .models import Perfil, Mascota, Cliente, Recepcionista, Veterinario
+from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm, CitaForm, ConsultaForm
+from .models import Perfil, Mascota, Cliente, Recepcionista, Veterinario, Cita, Consulta
 
 
 # ============================================================
@@ -283,10 +286,6 @@ def mascotas_list(request):
 
 @login_required
 def mascotas_crear(request):
-    """
-    Recepcionista/Admin: pueden crear mascotas para cualquier cliente.
-    Cliente: puede crear solo sus propias mascotas (forzamos el dueño).
-    """
     tipo = request.user.perfil.tipo
 
     if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR", "CLIENTE"]:
@@ -294,7 +293,7 @@ def mascotas_crear(request):
         return redirect("dashboard")
 
     if request.method == 'POST':
-        form = MascotaForm(request.POST)
+        form = MascotaForm(request.POST, user=request.user)
         if form.is_valid():
             mascota = form.save(commit=False)
             if tipo == "CLIENTE":
@@ -302,21 +301,17 @@ def mascotas_crear(request):
                 if not cliente:
                     messages.error(request, "Tu perfil no está asociado a un cliente.")
                     return redirect('mascotas_list')
-                mascota.dueno = cliente  # el cliente solo puede crear para sí mismo
+                mascota.dueno = cliente
             mascota.save()
             messages.success(request, 'Mascota registrada correctamente.')
             return redirect('mascotas_list')
     else:
-        form = MascotaForm()
+        form = MascotaForm(user=request.user)
     return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Registrar Mascota'})
 
 
 @login_required
 def mascotas_editar(request, pk):
-    """
-    Recepcionista/Admin: pueden editar cualquier mascota.
-    Cliente: solo puede editar mascotas propias y no puede cambiar el dueño.
-    """
     tipo = request.user.perfil.tipo
     mascota = get_object_or_404(Mascota, pk=pk)
 
@@ -330,16 +325,16 @@ def mascotas_editar(request, pk):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        form = MascotaForm(request.POST, instance=mascota)
+        form = MascotaForm(request.POST, instance=mascota, user=request.user)
         if form.is_valid():
             mascota_edit = form.save(commit=False)
             if tipo == "CLIENTE":
-                mascota_edit.dueno = mascota.dueno  # cliente no puede reasignar dueño
+                mascota_edit.dueno = mascota.dueno
             mascota_edit.save()
             messages.success(request, 'Mascota actualizada correctamente.')
             return redirect('mascotas_list')
     else:
-        form = MascotaForm(instance=mascota)
+        form = MascotaForm(instance=mascota, user=request.user)
     return render(request, 'mascotas/form.html', {'form': form, 'titulo': 'Editar Mascota'})
 
 
@@ -652,3 +647,346 @@ def recepcionistas_deshabilitar(request, pk):
     else:
         messages.info(request, f'Recepcionista "{user.username}" ya estaba inactivo.')
     return redirect('recepcionistas_list')
+
+
+#Citas
+
+@login_required
+def citas_list(request):
+    
+    tipo = request.user.perfil.tipo
+    q = request.GET.get('q', '').strip()
+    filtro = request.GET.get('filtro', 'todas')  # ← NUEVO
+
+    if tipo == "VETERINARIO":
+        veterinario = Veterinario.objects.filter(perfil=request.user.perfil).first()
+        if veterinario:
+            citas = Cita.objects.filter(veterinario=veterinario).order_by('-fecha_hora')
+        else:
+            citas = Cita.objects.none()
+    elif tipo == "CLIENTE":
+        cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+        if cliente:
+            citas = Cita.objects.filter(mascota__dueno=cliente).order_by('-fecha_hora')
+        else:
+            citas = Cita.objects.none()
+    elif tipo in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        citas = Cita.objects.all().order_by('-fecha_hora')
+    else:
+        messages.error(request, "No tienes permisos para ver las citas.")
+        return redirect("dashboard")
+    
+    # ⬇️ ESTA ES LA PARTE NUEVA (filtros de fecha) ⬇️
+    hoy = timezone.now().date()
+    
+    if filtro == 'hoy':
+        inicio_dia = timezone.make_aware(timezone.datetime.combine(hoy, timezone.datetime.min.time()))
+        fin_dia = timezone.make_aware(timezone.datetime.combine(hoy, timezone.datetime.max.time()))
+        citas = citas.filter(fecha_hora__gte=inicio_dia, fecha_hora__lte=fin_dia)
+    elif filtro == 'semana':
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        fin_semana = inicio_semana + timedelta(days=6)
+        inicio_semana_dt = timezone.make_aware(timezone.datetime.combine(inicio_semana, timezone.datetime.min.time()))
+        fin_semana_dt = timezone.make_aware(timezone.datetime.combine(fin_semana, timezone.datetime.max.time()))
+        citas = citas.filter(fecha_hora__gte=inicio_semana_dt, fecha_hora__lte=fin_semana_dt)
+    # ⬆️ HASTA AQUÍ LA PARTE NUEVA ⬆️
+
+    if q:
+        citas = citas.filter(
+            Q(mascota__nombre__icontains=q) |
+            Q(mascota__dueno__nombre__icontains=q) |
+            Q(mascota__dueno__apellido__icontains=q) |
+            Q(veterinario__nombre__icontains=q) |
+            Q(veterinario__apellido__icontains=q) |
+            Q(motivo__icontains=q)
+        )
+
+    page_obj = Paginator(citas, 10).get_page(request.GET.get('page'))
+    return render(request, 'citas/lista.html', {
+        'page_obj': page_obj,
+        'q': q,
+        'filtro': filtro  # ← NUEVO (pasamos el filtro al template)
+    })
+
+
+@login_required
+def citas_crear(request):
+    tipo = request.user.perfil.tipo
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para agendar citas.")
+        return redirect("dashboard")
+
+    dueno_id = request.GET.get('dueno') or request.POST.get('dueno')
+    
+    if request.method == 'POST':
+        form = CitaForm(request.POST)
+        if form.is_valid():
+            cita = form.save(commit=False)
+            mascota_id = request.POST.get('mascota')
+            cita.mascota_id = mascota_id
+            cita.save()
+            messages.success(request, 'Cita agendada correctamente.')
+            return redirect('citas_list')
+    else:
+        form = CitaForm()
+    
+    if dueno_id:
+        mascotas = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
+    else:
+        mascotas = Mascota.objects.none()
+    
+    clientes = Cliente.objects.all().order_by('apellido', 'nombre')
+    
+    return render(request, 'citas/form.html', {
+        'form': form, 
+        'titulo': 'Agendar Cita',
+        'mascotas': mascotas,
+        'clientes': clientes,
+        'dueno_seleccionado': dueno_id
+    })
+
+
+@login_required
+def citas_editar(request, pk):
+    tipo = request.user.perfil.tipo
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para editar citas.")
+        return redirect("dashboard")
+
+    cita = get_object_or_404(Cita, pk=pk)
+    dueno_id = request.GET.get('dueno') or request.POST.get('dueno')
+    
+    if not dueno_id:
+        dueno_id = str(cita.mascota.dueno.id)
+    
+    if request.method == 'POST':
+        form = CitaForm(request.POST, instance=cita)
+        if form.is_valid():
+            cita_edit = form.save(commit=False)
+            mascota_id = request.POST.get('mascota')
+            cita_edit.mascota_id = mascota_id
+            cita_edit.save()
+            messages.success(request, 'Cita actualizada correctamente.')
+            return redirect('citas_list')
+    else:
+        form = CitaForm(instance=cita)
+    
+    if dueno_id:
+        mascotas = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
+    else:
+        mascotas = Mascota.objects.none()
+    
+    clientes = Cliente.objects.all().order_by('apellido', 'nombre')
+    
+    return render(request, 'citas/form.html', {
+        'form': form, 
+        'titulo': 'Editar Cita',
+        'mascotas': mascotas,
+        'clientes': clientes,
+        'dueno_seleccionado': dueno_id,
+        'mascota_seleccionada': cita.mascota.id
+    })
+
+
+@login_required
+def citas_cancelar(request, pk):
+    tipo = request.user.perfil.tipo
+    if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para cancelar citas.")
+        return redirect("dashboard")
+
+    cita = get_object_or_404(Cita, pk=pk)
+    if cita.estado != 'CANCELADO':
+        cita.estado = 'CANCELADO'
+        cita.save()
+        messages.warning(request, f'Cita cancelada correctamente.')
+    else:
+        messages.info(request, 'Esta cita ya estaba cancelada.')
+    return redirect('citas_list')
+
+
+@login_required
+def citas_completar(request, pk):
+    tipo = request.user.perfil.tipo
+    if tipo not in ["VETERINARIO", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para completar citas.")
+        return redirect("dashboard")
+
+    cita = get_object_or_404(Cita, pk=pk)
+    if cita.estado == 'PROGRAMADO':
+        cita.estado = 'COMPLETADO'
+        cita.save()
+        messages.success(request, f'Cita marcada como completada.')
+    else:
+        messages.info(request, f'Esta cita ya estaba en estado {cita.estado}.')
+    return redirect('citas_list')
+
+
+@login_required
+def cita_detalle(request, pk):
+    tipo = request.user.perfil.tipo
+    cita = get_object_or_404(Cita, pk=pk)
+    
+    if tipo == "VETERINARIO":
+        veterinario = Veterinario.objects.filter(perfil=request.user.perfil).first()
+        if not veterinario or cita.veterinario != veterinario:
+            messages.error(request, "No puedes ver citas que no te corresponden.")
+            return redirect("citas_list")
+    elif tipo == "CLIENTE":
+        cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+        if not cliente or cita.mascota.dueno != cliente:
+            messages.error(request, "No puedes ver citas que no son de tus mascotas.")
+            return redirect("citas_list")
+    elif tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para ver esta cita.")
+        return redirect("dashboard")
+    
+    tiene_consulta = hasattr(cita, 'consulta')
+    
+    return render(request, 'citas/detalle.html', {
+        'cita': cita,
+        'tiene_consulta': tiene_consulta
+    })
+
+
+@login_required
+def consulta_registrar(request, cita_id):
+    tipo = request.user.perfil.tipo
+    if tipo not in ["VETERINARIO", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para registrar consultas.")
+        return redirect("dashboard")
+    
+    cita = get_object_or_404(Cita, pk=cita_id)
+    
+    if tipo == "VETERINARIO":
+        veterinario = Veterinario.objects.filter(perfil=request.user.perfil).first()
+        if not veterinario or cita.veterinario != veterinario:
+            messages.error(request, "Solo puedes registrar consultas de tus propias citas.")
+            return redirect("citas_list")
+    
+    if hasattr(cita, 'consulta'):
+        messages.warning(request, "Esta cita ya tiene una consulta registrada.")
+        return redirect('consulta_detalle', pk=cita.consulta.id)
+    
+    if cita.estado == 'CANCELADO':
+        messages.error(request, "No se puede registrar consulta para una cita cancelada.")
+        return redirect('cita_detalle', pk=cita_id)
+    
+    if request.method == 'POST':
+        form = ConsultaForm(request.POST)
+        if form.is_valid():
+            consulta = form.save(commit=False)
+            consulta.cita = cita
+            consulta.save()
+            
+            cita.estado = 'COMPLETADO'
+            cita.save()
+            
+            # ⬇️ ESTA ES LA PARTE NUEVA ⬇️
+            if consulta.proxima_cita:
+                from datetime import datetime, time
+                fecha_proxima = consulta.proxima_cita
+                hora_sugerida = time(10, 0)
+                fecha_hora_proxima = datetime.combine(fecha_proxima, hora_sugerida)
+                
+                nueva_cita = Cita(
+                    mascota=cita.mascota,
+                    veterinario=cita.veterinario,
+                    fecha_hora=fecha_hora_proxima,
+                    motivo=f"Control post: {consulta.diagnostico[:50]}",
+                    observaciones=f"Cita de seguimiento sugerida en consulta del {consulta.fecha_consulta}",
+                    estado='PROGRAMADO'
+                )
+                nueva_cita.save()
+                messages.success(request, f'Consulta registrada y próxima cita agendada para el {fecha_proxima.strftime("%d/%m/%Y")} a las 10:00.')
+            else:
+                messages.success(request, 'Consulta registrada correctamente.')
+            # ⬆️ HASTA AQUÍ LA PARTE NUEVA ⬆️
+            
+            return redirect('cita_detalle', pk=cita_id)
+    else:
+        from django.utils import timezone
+        form = ConsultaForm(initial={'fecha_consulta': timezone.now().date()})
+    
+    return render(request, 'consultas/form.html', {
+        'form': form,
+        'cita': cita,
+        'titulo': 'Registrar Consulta'
+    })
+
+
+@login_required
+def consulta_detalle(request, pk):
+    consulta = get_object_or_404(Consulta, pk=pk)
+    cita = consulta.cita
+    tipo = request.user.perfil.tipo
+    
+    if tipo == "VETERINARIO":
+        veterinario = Veterinario.objects.filter(perfil=request.user.perfil).first()
+        if not veterinario or cita.veterinario != veterinario:
+            messages.error(request, "No puedes ver consultas que no te corresponden.")
+            return redirect("citas_list")
+    elif tipo == "CLIENTE":
+        cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+        if not cliente or cita.mascota.dueno != cliente:
+            messages.error(request, "No puedes ver consultas que no son de tus mascotas.")
+            return redirect("citas_list")
+    elif tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para ver esta consulta.")
+        return redirect("dashboard")
+    
+    return render(request, 'consultas/detalle.html', {'consulta': consulta})
+
+
+@login_required
+def historial_medico(request, mascota_id):
+    mascota = get_object_or_404(Mascota, pk=mascota_id)
+    tipo = request.user.perfil.tipo
+    
+    if tipo == "CLIENTE":
+        cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+        if not cliente or mascota.dueno != cliente:
+            messages.error(request, "No puedes ver el historial de mascotas que no son tuyas.")
+            return redirect("mascotas_list")
+    elif tipo not in ["VETERINARIO", "RECEPCIONISTA", "ADMINISTRADOR"]:
+        messages.error(request, "No tienes permisos para ver historiales médicos.")
+        return redirect("dashboard")
+    
+    consultas = Consulta.objects.filter(cita__mascota=mascota).order_by('-fecha_consulta')
+    
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    
+    if fecha_desde:
+        consultas = consultas.filter(fecha_consulta__gte=fecha_desde)
+    if fecha_hasta:
+        consultas = consultas.filter(fecha_consulta__lte=fecha_hasta)
+    
+    page_obj = Paginator(consultas, 10).get_page(request.GET.get('page'))
+    
+    return render(request, 'consultas/historial.html', {
+        'mascota': mascota,
+        'page_obj': page_obj,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta
+    })
+
+@login_required
+def mis_mascotas_historial(request):
+    tipo = request.user.perfil.tipo
+    if tipo != "CLIENTE":
+        messages.error(request, "Esta sección es solo para clientes.")
+        return redirect("dashboard")
+    
+    cliente = Cliente.objects.filter(perfil=request.user.perfil).first()
+    if not cliente:
+        messages.error(request, "No se encontró información de cliente.")
+        return redirect("dashboard")
+    
+    mascotas = Mascota.objects.filter(dueno=cliente, activo=True)
+    
+    return render(request, 'consultas/mis_mascotas_historial.html', {
+        'mascotas': mascotas,
+        'cliente': cliente
+    })
+

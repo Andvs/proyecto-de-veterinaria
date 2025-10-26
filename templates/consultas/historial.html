@@ -1,0 +1,145 @@
+{% extends "inicio.html" %}
+{% block main %}
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-clipboard-pulse"></i> Historial Médico de {{ mascota.nombre }}</h4>
+        <a href="{% url 'mascotas_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Información de la Mascota</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Nombre:</strong> {{ mascota.nombre }}</p>
+                    <p><strong>Especie:</strong> {{ mascota.especie }}</p>
+                    <p><strong>Raza:</strong> {{ mascota.raza|default:"No especificada" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Sexo:</strong> {% if mascota.sexo == 'M' %}Macho{% else %}Hembra{% endif %}</p>
+                    <p><strong>Color:</strong> {{ mascota.color|default:"No especificado" }}</p>
+                    <p><strong>Fecha Nac:</strong> {{ mascota.fecha_nacimiento|date:"d/m/Y"|default:"No registrada" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Dueño:</strong> {{ mascota.dueno }}</p>
+                    <p><strong>Estado:</strong> 
+                        {% if mascota.activo %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactiva</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtrar por Fecha</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <label for="fecha_desde" class="form-label">Desde:</label>
+                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-5">
+                    <label for="fecha_hasta" class="form-label">Hasta:</label>
+                    <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+            {% if fecha_desde or fecha_hasta %}
+                <div class="mt-2">
+                    <a href="{% url 'historial_medico' mascota.id %}" class="btn btn-sm btn-outline-secondary">
+                        Limpiar filtros
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if page_obj.object_list %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Consultas Registradas ({{ page_obj.paginator.count }} total)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for consulta in page_obj.object_list %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">
+                                    <i class="bi bi-calendar-event"></i> {{ consulta.fecha_consulta|date:"d/m/Y" }}
+                                </h6>
+                                <small class="text-muted">Costo: ${{ consulta.costo|floatformat:0 }}</small>
+                            </div>
+                            <p class="mb-1"><strong>Diagnóstico:</strong> {{ consulta.diagnostico }}</p>
+                            <p class="mb-1"><strong>Veterinario:</strong> {{ consulta.cita.veterinario }}</p>
+                            {% if consulta.tratamiento %}
+                                <p class="mb-1"><strong>Tratamiento:</strong> {{ consulta.tratamiento|truncatewords:15 }}</p>
+                            {% endif %}
+                            {% if consulta.proxima_cita %}
+                                <p class="mb-1">
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-calendar-plus"></i> Próxima cita: {{ consulta.proxima_cita|date:"d/m/Y" }}
+                                    </span>
+                                </p>
+                            {% endif %}
+                            <div class="mt-2">
+                                <a href="{% url 'consulta_detalle' consulta.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> Ver Detalle Completo
+                                </a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% if page_obj.paginator.num_pages > 1 %}
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">«</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">«</span></li>
+                    {% endif %}
+
+                    {% for p in page_obj.paginator.page_range %}
+                        {% if p == page_obj.number %}
+                            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ p }}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">{{ p }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">»</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">»</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No hay consultas registradas para esta mascota
+            {% if fecha_desde or fecha_hasta %}en el rango de fechas seleccionado{% endif %}.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

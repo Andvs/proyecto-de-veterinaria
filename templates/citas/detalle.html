@@ -1,0 +1,94 @@
+{% extends "inicio.html" %}
+{% block main %}
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4>Detalle de Cita #{{ cita.id }}</h4>
+        <a href="{% url 'citas_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Información de la Cita</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Fecha y Hora:</strong> {{ cita.fecha_hora|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong>
+                        {% if cita.estado == 'PROGRAMADO' %}
+                            <span class="badge bg-primary">Programada</span>
+                        {% elif cita.estado == 'COMPLETADO' %}
+                            <span class="badge bg-success">Completada</span>
+                        {% else %}
+                            <span class="badge bg-danger">Cancelada</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Motivo:</strong> {{ cita.motivo }}</p>
+                    {% if cita.observaciones %}
+                        <p><strong>Observaciones:</strong> {{ cita.observaciones }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-paw"></i> Información de la Mascota</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nombre:</strong> {{ cita.mascota.nombre }}</p>
+                    <p><strong>Especie:</strong> {{ cita.mascota.especie }}</p>
+                    <p><strong>Raza:</strong> {{ cita.mascota.raza|default:"No especificada" }}</p>
+                    <p><strong>Sexo:</strong> {% if cita.mascota.sexo == 'M' %}Macho{% else %}Hembra{% endif %}</p>
+                    <p><strong>Fecha de Nacimiento:</strong> {{ cita.mascota.fecha_nacimiento|date:"d/m/Y"|default:"No registrada" }}</p>
+                    <p><strong>Color:</strong> {{ cita.mascota.color|default:"No especificado" }}</p>
+                    <p><strong>Dueño:</strong> {{ cita.mascota.dueno.nombre }} {{ cita.mascota.dueno.apellido }}</p>
+                    <p><strong>Teléfono:</strong> {{ cita.mascota.dueno.perfil.telefono }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Veterinario Asignado</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nombre:</strong> {{ cita.veterinario }}</p>
+                    <p><strong>Especialidad:</strong> {{ cita.veterinario.especialidad }}</p>
+                    <p><strong>Licencia:</strong> {{ cita.veterinario.licencia_profesional }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if tiene_consulta %}
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> Esta cita ya tiene una consulta registrada.
+            <a href="{% url 'consulta_detalle' cita.consulta.id %}" class="btn btn-sm btn-success ms-2">
+                Ver Consulta
+            </a>
+        </div>
+    {% else %}
+        {% if request.user.perfil.tipo in 'VETERINARIO,ADMINISTRADOR' and cita.estado == 'PROGRAMADO' %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> Esta cita aún no tiene consulta registrada.
+                <a href="{% url 'consulta_registrar' cita.id %}" class="btn btn-sm btn-primary ms-2">
+                    <i class="bi bi-plus-circle"></i> Registrar Consulta
+                </a>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="mt-3">
+        <a href="{% url 'historial_medico' cita.mascota.id %}" class="btn btn-info">
+            <i class="bi bi-clipboard-pulse"></i> Ver Historial Médico Completo
+        </a>
+    </div>
+</div>
+{% endblock %}

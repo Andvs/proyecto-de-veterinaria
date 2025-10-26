@@ -1,0 +1,102 @@
+{% extends "inicio.html" %}
+{% block main %}
+<div class="container py-3" style="max-width: 720px;">
+    <h4 class="mb-3">{{ titulo }}</h4>
+    
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="id_dueno_select" class="form-label">Dueño</label>
+                <select name="dueno" class="form-select" id="id_dueno_select" 
+                        onchange="window.location.href='?dueno=' + this.value">
+                    <option value="">---------</option>
+                    {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}" 
+                                {% if dueno_seleccionado == cliente.id|stringformat:"s" %}selected{% endif %}>
+                            {{ cliente.nombre }} {{ cliente.apellido }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">Selecciona un dueño para ver sus mascotas</small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_mascota" class="form-label">Mascota</label>
+                <select name="mascota" class="form-select" id="id_mascota" required 
+                        {% if not dueno_seleccionado %}disabled{% endif %}>
+                    {% if not dueno_seleccionado %}
+                        <option value="">Primero selecciona un dueño</option>
+                    {% elif mascotas %}
+                        <option value="">---------</option>
+                        {% for mascota in mascotas %}
+                            <option value="{{ mascota.id }}"
+                                    {% if mascota_seleccionada == mascota.id %}selected{% endif %}>
+                                {{ mascota.nombre }} ({{ mascota.especie }})
+                            </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">Este cliente no tiene mascotas</option>
+                    {% endif %}
+                </select>
+                {% if form.mascota.errors %}
+                    <div class="text-danger small mt-1">{{ form.mascota.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_veterinario" class="form-label">Veterinario</label>
+                {{ form.veterinario }}
+                {% if form.veterinario.errors %}
+                    <div class="text-danger small mt-1">{{ form.veterinario.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_fecha_hora" class="form-label">Fecha y hora</label>
+                {{ form.fecha_hora }}
+                {% if form.fecha_hora.errors %}
+                    <div class="text-danger small mt-1">{{ form.fecha_hora.errors }}</div>
+                {% endif %}
+                <small class="text-muted d-block mt-1">
+                    La cita debe ser en el futuro y respetar los horarios del veterinario.
+                </small>
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_motivo" class="form-label">Motivo de consulta</label>
+                {{ form.motivo }}
+                {% if form.motivo.errors %}
+                    <div class="text-danger small mt-1">{{ form.motivo.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="id_observaciones" class="form-label">Observaciones</label>
+                {{ form.observaciones }}
+                {% if form.observaciones.errors %}
+                    <div class="text-danger small mt-1">{{ form.observaciones.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-check-circle"></i> Guardar
+                </button>
+                <a class="btn btn-outline-secondary" href="{% url 'citas_list' %}">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </a>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

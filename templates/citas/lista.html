@@ -1,0 +1,153 @@
+{% extends "inicio.html" %}
+{% block main %}
+<div class="container py-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4>Gestión de Citas</h4>
+    {% if request.user.perfil.tipo in 'RECEPCIONISTA,ADMINISTRADOR' %}
+      <a href="{% url 'citas_crear' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Agendar Nueva Cita
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Filtros rápidos -->
+  <div class="btn-group mb-3" role="group">
+    <a href="?filtro=hoy{% if q %}&q={{ q }}{% endif %}" 
+        class="btn {% if filtro == 'hoy' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+      <i class="bi bi-calendar-day"></i> Hoy
+    </a>
+    <a href="?filtro=semana{% if q %}&q={{ q }}{% endif %}" 
+        class="btn {% if filtro == 'semana' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+      <i class="bi bi-calendar-week"></i> Esta Semana
+    </a>
+    <a href="?filtro=todas{% if q %}&q={{ q }}{% endif %}" 
+        class="btn {% if filtro == 'todas' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+      <i class="bi bi-calendar3"></i> Todas
+    </a>
+  </div>
+
+  <!-- Buscador -->
+  <form class="mb-3" method="get">
+    <div class="input-group">
+      <input name="q" value="{{ q }}" class="form-control" placeholder="Buscar cita (mascota, dueño, veterinario, motivo)">
+      <button class="btn btn-primary" type="submit">Buscar</button>
+      {% if q %}
+        <a class="btn btn-outline-secondary" href="{% url 'citas_list' %}">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Lista -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Fecha y Hora</th>
+              <th>Mascota</th>
+              <th>Dueño</th>
+              <th>Veterinario</th>
+              <th>Motivo</th>
+              <th>Estado</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if page_obj.object_list %}
+              {% for c in page_obj.object_list %}
+                <tr>
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+                  <td>{{ c.mascota.nombre }}</td>
+                  <td>{{ c.mascota.dueno.nombre }} {{ c.mascota.dueno.apellido }}</td>
+                  <td>Dr(a). {{ c.veterinario.nombre }} {{ c.veterinario.apellido }}</td>
+                  <td>{{ c.motivo|truncatewords:5 }}</td>
+                  <td>
+                    {% if c.estado == 'PROGRAMADO' %}
+                      <span class="badge bg-primary">Programada</span>
+                    {% elif c.estado == 'COMPLETADO' %}
+                      <span class="badge bg-success">Completada</span>
+                      {% if c.consulta %}
+                        <br><small class="text-success"><i class="bi bi-check-circle-fill"></i> Con consulta</small>
+                      {% endif %}
+                    {% elif c.estado == 'CANCELADO' %}
+                      <span class="badge bg-danger">Cancelada</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a href="{% url 'cita_detalle' c.id %}" class="btn btn-sm btn-outline-info">
+                      <i class="bi bi-eye"></i> Ver Detalle
+                    </a>
+                    
+                    {% if request.user.perfil.tipo in 'RECEPCIONISTA,ADMINISTRADOR' %}
+                      {% if c.estado == 'PROGRAMADO' %}
+                        <a href="{% url 'citas_editar' c.id %}" class="btn btn-sm btn-outline-primary">
+                          <i class="bi bi-pencil-square"></i> Editar
+                        </a>
+                        <a href="{% url 'citas_cancelar' c.id %}" class="btn btn-sm btn-outline-danger"
+                            onclick="return confirm('¿Cancelar esta cita?');">
+                          <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                      {% endif %}
+                    {% endif %}
+                    
+                    {% if request.user.perfil.tipo in 'VETERINARIO,ADMINISTRADOR' %}
+                      {% if c.estado == 'PROGRAMADO' %}
+                        <a href="{% url 'citas_completar' c.id %}" class="btn btn-sm btn-outline-success"
+                            onclick="return confirm('¿Marcar como completada?');">
+                          <i class="bi bi-check-circle"></i> Completar
+                        </a>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="8" class="text-center py-4">No hay citas registradas.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paginación -->
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="mt-3">
+      <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+          <li class="page-item"><a class="page-link" href="?filtro={{ filtro }}&q={{ q }}&page={{ page_obj.previous_page_number }}">«</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">«</span></li>
+        {% endif %}
+
+        {% for p in page_obj.paginator.page_range %}
+          {% if p == page_obj.number %}
+            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+          {% else %}
+            <li class="page-item"><a class="page-link" href="?filtro={{ filtro }}&q={{ q }}&page={{ p }}">{{ p }}</a></li>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <li class="page-item"><a class="page-link" href="?filtro={{ filtro }}&q={{ q }}&page={{ page_obj.next_page_number }}">»</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">»</span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+
+  <!-- Botón Registrar (solo para Recepcionista y Admin) -->
+  {% if request.user.perfil.tipo in 'RECEPCIONISTA,ADMINISTRADOR' %}
+    <div class="mt-4">
+      <a href="{% url 'citas_crear' %}" class="btn btn-success px-4">
+        <i class="bi bi-calendar-plus"></i> Agendar Cita
+      </a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
