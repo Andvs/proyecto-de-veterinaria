@@ -932,23 +932,38 @@ def citas_crear(request):
     
     if request.method == 'POST':
         form = CitaForm(request.POST)
+        
+        # Filtrar las mascotas según el dueño seleccionado
+        if dueno_id:
+            form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
+        else:
+            form.fields['mascota'].queryset = Mascota.objects.none()
+        
         if form.is_valid():
             cita = form.save(commit=False)
-            mascota_id = request.POST.get('mascota')
-            cita.mascota_id = mascota_id
-            try:
-                cita.full_clean()  # <-- valida reglas del modelo
-                cita.save()
-                messages.success(request, 'Cita agendada correctamente.')
-                return redirect('citas_list')
-            except ValidationError as e:
-                # Llevar errores al form y seguir mostrando
-                for field, errs in e.message_dict.items():
-                    for err in errs:
-                        form.add_error(field if field in form.fields else None, err)
+            
+            # ✅ VALIDACIÓN ADICIONAL: Verificar que mascota existe
+            if not cita.mascota:
+                form.add_error('mascota', 'Debes seleccionar una mascota para agendar la cita.')
                 messages.error(request, 'Revisa los errores del formulario.')
+            else:
+                try:
+                    cita.full_clean()
+                    cita.save()
+                    messages.success(request, 'Cita agendada correctamente.')
+                    return redirect('citas_list')
+                except ValidationError as e:
+                    for field, errs in e.message_dict.items():
+                        for err in errs:
+                            form.add_error(field if field in form.fields else None, err)
+                    messages.error(request, 'Revisa los errores del formulario.')
     else:
         form = CitaForm()
+        # También filtrar en GET
+        if dueno_id:
+            form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
+        else:
+            form.fields['mascota'].queryset = Mascota.objects.none()
     
     if dueno_id:
         mascotas = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
@@ -978,22 +993,36 @@ def citas_editar(request, pk):
     
     if request.method == 'POST':
         form = CitaForm(request.POST, instance=cita)
+        
+        # Filtrar las mascotas según el dueño seleccionado
+        if dueno_id:
+            form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
+        else:
+            form.fields['mascota'].queryset = Mascota.objects.none()
+        
         if form.is_valid():
             cita_edit = form.save(commit=False)
-            mascota_id = request.POST.get('mascota')
-            cita_edit.mascota_id = mascota_id
-            try:
-                cita_edit.full_clean()   # <-- valida reglas del modelo
-                cita_edit.save()
-                messages.success(request, 'Cita actualizada correctamente.')
-                return redirect('citas_list')
-            except ValidationError as e:
-                for field, errs in e.message_dict.items():
-                    for err in errs:
-                        form.add_error(field if field in form.fields else None, err)
+            
+            # ✅ VALIDACIÓN ADICIONAL: Verificar que mascota existe
+            if not cita_edit.mascota:
+                form.add_error('mascota', 'Debes seleccionar una mascota para la cita.')
                 messages.error(request, 'Revisa los errores del formulario.')
+            else:
+                try:
+                    cita_edit.full_clean()
+                    cita_edit.save()
+                    messages.success(request, 'Cita actualizada correctamente.')
+                    return redirect('citas_list')
+                except ValidationError as e:
+                    for field, errs in e.message_dict.items():
+                        for err in errs:
+                            form.add_error(field if field in form.fields else None, err)
+                    messages.error(request, 'Revisa los errores del formulario.')
     else:
         form = CitaForm(instance=cita)
+        # También filtrar en GET
+        if dueno_id:
+            form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
     
     mascotas = Mascota.objects.filter(activo=True, dueno_id=dueno_id) if dueno_id else Mascota.objects.none()
     clientes = Cliente.objects.all().order_by('apellido', 'nombre')

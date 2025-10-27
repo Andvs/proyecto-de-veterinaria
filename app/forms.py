@@ -97,7 +97,7 @@ class RegistroClienteRecepForm(UserCreationForm):
     class Meta:
         model = User
         fields = ["username", "email", "password1", "password2",
-                  "rut", "telefono", "nombre", "apellido", "direccion"]
+                "rut", "telefono", "nombre", "apellido", "direccion"]
 
         widgets = {
             "username": forms.TextInput(attrs={"class": "form-control"}),
@@ -181,14 +181,16 @@ class CitaForm(forms.ModelForm):
     
     class Meta:
         model = Cita
-        fields = ["veterinario", "fecha_hora", "motivo", "observaciones"]
+        fields = ["mascota", "veterinario", "fecha_hora", "motivo", "observaciones"]
         labels = {
+            "mascota": "Mascota",
             "veterinario": "Veterinario",
             "fecha_hora": "Fecha y hora",
             "motivo": "Motivo de consulta",
             "observaciones": "Observaciones",
         }
         widgets = {
+            "mascota": forms.Select(attrs={"class": "form-select", "id": "id_mascota"}),
             "veterinario": forms.Select(attrs={"class": "form-select"}),
             "fecha_hora": forms.DateTimeInput(attrs={"type": "datetime-local", "class": "form-control"}),
             "motivo": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
@@ -197,11 +199,10 @@ class CitaForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['mascota'] = forms.ModelChoiceField(
-            queryset=Mascota.objects.filter(activo=True),
-            label="Mascota",
-            widget=forms.Select(attrs={"class": "form-select", "id": "id_mascota"}),
-            required=True
+        
+        self.fields['mascota'].queryset = Mascota.objects.filter(activo=True)
+        self.fields['veterinario'].queryset = Veterinario.objects.filter(
+            perfil__user__is_active=True
         )
         
         if self.instance.pk:
@@ -217,6 +218,14 @@ class CitaForm(forms.ModelForm):
             raise forms.ValidationError('No se puede agendar una cita en el pasado.')
         
         return fecha_hora
+    
+    def clean_mascota(self):
+        mascota = self.cleaned_data.get('mascota')
+        
+        if not mascota:
+            raise forms.ValidationError('Debes seleccionar una mascota para agendar la cita.')
+        
+        return mascota
     
     def clean(self):
         from django.utils import timezone
@@ -278,7 +287,6 @@ class CitaForm(forms.ModelForm):
                 )
         
         return cleaned_data
-
 
 class ConsultaForm(forms.ModelForm):
     class Meta:
