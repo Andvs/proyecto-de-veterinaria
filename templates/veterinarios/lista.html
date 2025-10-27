@@ -50,6 +50,9 @@
                     <a href="{% url 'veterinarios_editar' v.id %}" class="btn btn-sm btn-outline-primary">
                       <i class="bi bi-pencil-square"></i> Editar
                     </a>
+                    <a href="{% url 'agenda_veterinario_detalle' v.id %}" class="btn btn-sm btn-outline-info">
+                      <i class="bi bi-calendar-week"></i> Agenda
+                    </a>
                     {% if v.perfil.user.is_active %}
                       <a href="{% url 'veterinarios_deshabilitar' v.id %}" class="btn btn-sm btn-outline-warning"
                          onclick="return confirm('¿Deshabilitar a {{ v.nombre }} {{ v.apellido }}?');">

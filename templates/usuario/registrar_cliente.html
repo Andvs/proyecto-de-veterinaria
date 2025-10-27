@@ -1,0 +1,119 @@
+{% extends "inicio.html" %}
+{% load static %}
+
+{% block title %}Registrar cliente{% endblock %}
+
+{% block main %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4 mb-3 text-center">Registrar nuevo cliente</h2>
+  <p class="text-muted text-center">
+    Completa los datos del cliente. El tipo de usuario se establecerá automáticamente como <strong>Cliente</strong>.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <!-- Errores generales del formulario -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors|striptags }}
+      </div>
+    {% endif %}
+
+    <!-- Usuario -->
+    <div class="mt-3">
+      <label for="{{ form.username.id_for_label }}" class="form-label">Usuario</label>
+      {{ form.username }}
+      {% if form.username.help_text %}
+        <div class="form-text">{{ form.username.help_text|safe }}</div>
+      {% endif %}
+      {% if form.username.errors %}
+        <div class="text-danger small">{{ form.username.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Correo -->
+    <div class="mt-3">
+      <label for="{{ form.email.id_for_label }}" class="form-label">Correo electrónico</label>
+      {{ form.email }}
+      {% if form.email.errors %}
+        <div class="text-danger small">{{ form.email.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Contraseña -->
+    <div class="mt-3">
+      <label for="{{ form.password1.id_for_label }}" class="form-label">Contraseña</label>
+      {{ form.password1 }}
+      {% if form.password1.help_text %}
+        <div class="form-text">{{ form.password1.help_text|safe }}</div>
+      {% endif %}
+      {% if form.password1.errors %}
+        <div class="text-danger small">{{ form.password1.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Confirmar contraseña -->
+    <div class="mt-3">
+      <label for="{{ form.password2.id_for_label }}" class="form-label">Confirmar contraseña</label>
+      {{ form.password2 }}
+      {% if form.password2.errors %}
+        <div class="text-danger small">{{ form.password2.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- RUT -->
+    <div class="mt-3">
+      <label for="{{ form.rut.id_for_label }}" class="form-label">RUT / DNI</label>
+      {{ form.rut }}
+      {% if form.rut.errors %}
+        <div class="text-danger small">{{ form.rut.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Teléfono -->
+    <div class="mt-3">
+      <label for="{{ form.telefono.id_for_label }}" class="form-label">Teléfono</label>
+      {{ form.telefono }}
+      {% if form.telefono.errors %}
+        <div class="text-danger small">{{ form.telefono.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Nombre -->
+    <div class="mt-3">
+      <label for="{{ form.nombre.id_for_label }}" class="form-label">Nombre</label>
+      {{ form.nombre }}
+      {% if form.nombre.errors %}
+        <div class="text-danger small">{{ form.nombre.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Apellido -->
+    <div class="mt-3">
+      <label for="{{ form.apellido.id_for_label }}" class="form-label">Apellido</label>
+      {{ form.apellido }}
+      {% if form.apellido.errors %}
+        <div class="text-danger small">{{ form.apellido.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Dirección -->
+    <div class="mt-3">
+      <label for="{{ form.direccion.id_for_label }}" class="form-label">Dirección</label>
+      {{ form.direccion }}
+      {% if form.direccion.errors %}
+        <div class="text-danger small">{{ form.direccion.errors|striptags }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Botones -->
+    <div class="mt-4 d-flex justify-content-between">
+      <a href="{% url 'usuarios_list' %}" class="btn btn-outline-secondary w-50 me-2">Cancelar</a>
+      <button type="submit" class="btn btn-success w-50">
+        <i class="bi bi-save"></i> Guardar
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

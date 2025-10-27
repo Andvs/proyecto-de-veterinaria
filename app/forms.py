@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Mascota, Cita, Consulta, Cliente, Veterinario, Recepcionista
+from .models import Mascota, Cita, Consulta, Cliente, Veterinario, Recepcionista, Perfil
 
 
 # ----------------------------------------------------------------------
@@ -46,7 +46,7 @@ class RegistroForm(UserCreationForm):
 
 
 # ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE VETERINARIO (PASO 2)
+# FORMULARIO DE VETERINARIO (PASO 2)
 # ----------------------------------------------------------------------
 class VeterinarioForm(forms.ModelForm):
     class Meta:
@@ -69,7 +69,7 @@ class VeterinarioForm(forms.ModelForm):
 
 
 # ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE CLIENTE (PASO 2)
+#  FORMULARIO DE CLIENTE (PASO 2)
 # ----------------------------------------------------------------------
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -82,6 +82,46 @@ class ClienteForm(forms.ModelForm):
             "direccion": forms.TextInput(attrs={"class": "form-control"}),
         }
 
+class RegistroClienteRecepForm(UserCreationForm):
+    # Campos extra para Perfil
+    rut = forms.CharField(label="RUT / DNI", max_length=12)
+    telefono = forms.CharField(label="Teléfono", max_length=15)
+
+    # Campos de Cliente
+    nombre = forms.CharField(label="Nombre", max_length=45)
+    apellido = forms.CharField(label="Apellido", max_length=45)
+    direccion = forms.CharField(label="Dirección", max_length=100, required=False)
+
+    email = forms.EmailField(label="Email", required=True)
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "password1", "password2",
+                  "rut", "telefono", "nombre", "apellido", "direccion"]
+
+        widgets = {
+            "username": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Estilo Bootstrap a los campos del UserCreationForm
+        for name, field in self.fields.items():
+            if not field.widget.attrs.get("class"):
+                field.widget.attrs["class"] = "form-control"
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("Ya existe un usuario con este email.")
+        return email
+
+    def clean_rut(self):
+        rut = self.cleaned_data["rut"].strip()
+        if Perfil.objects.filter(rut__iexact=rut).exists():
+            raise forms.ValidationError("Ya existe un perfil con este RUT/DNI.")
+        return rut
 
 # ----------------------------------------------------------------------
 # 🔹 FORMULARIO DE MASCOTA

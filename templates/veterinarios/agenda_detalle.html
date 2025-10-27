@@ -1,0 +1,59 @@
+{% extends "inicio.html" %}
+{% block title %}Agenda de {{ vet.nombre }} {{ vet.apellido }}{% endblock %}
+{% block main %}
+<div class="container py-3">
+  <h4 class="mb-3">
+    <i class="bi bi-calendar3"></i> Agenda — Dr(a). {{ vet.nombre }} {{ vet.apellido }}
+  </h4>
+
+  <form class="mb-3" method="get">
+    <div class="btn-group" role="group">
+      <input type="hidden" name="q" value="{{ q }}">
+      <a href="?filtro=hoy" class="btn btn-sm {% if filtro == 'hoy' %}btn-primary{% else %}btn-outline-primary{% endif %}">Hoy</a>
+      <a href="?filtro=semana" class="btn btn-sm {% if filtro == 'semana' %}btn-primary{% else %}btn-outline-primary{% endif %}">Semana</a>
+      <a href="?filtro=todas" class="btn btn-sm {% if filtro == 'todas' %}btn-primary{% else %}btn-outline-primary{% endif %}">Todas</a>
+    </div>
+  </form>
+
+  {% if citas %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha/Hora</th>
+            <th>Mascota</th>
+            <th>Dueño</th>
+            <th>Motivo</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in citas %}
+            <tr>
+              <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+              <td>{{ c.mascota.nombre }}</td>
+              <td>{{ c.mascota.dueno.nombre }} {{ c.mascota.dueno.apellido }}</td>
+              <td>{{ c.motivo }}</td>
+              <td><span class="badge bg-warning text-dark">{{ c.estado }}</span></td>
+              <td>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'cita_detalle' c.id %}">
+                  Ver
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">Sin citas en el rango seleccionado.</div>
+  {% endif %}
+
+  <div class="mt-3">
+    <a href="{% url 'agenda_veterinarios' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
+{% endblock %}

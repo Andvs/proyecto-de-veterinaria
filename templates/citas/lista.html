@@ -4,11 +4,6 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4>Gestión de Citas</h4>
-    {% if request.user.perfil.tipo in 'RECEPCIONISTA,ADMINISTRADOR' %}
-      <a href="{% url 'citas_crear' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Agendar Nueva Cita
-      </a>
-    {% endif %}
   </div>
 
   <!-- Filtros rápidos -->

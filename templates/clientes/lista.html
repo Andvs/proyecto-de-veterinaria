@@ -66,6 +66,7 @@
             {% endif %}
           </tbody>
         </table>
+        
       </div>
     </div>
   </div>
@@ -96,5 +97,13 @@
       </ul>
     </nav>
   {% endif %}
+</div>
+
+<div class="mt-4">
+    {% if request.user.perfil.tipo == "RECEPCIONISTA" %}
+  <a href="{% url 'registrar_cliente_directo' %}" class="btn btn-success">
+    <i class="bi bi-person-plus"></i> Registrar nuevo cliente
+  </a>
+{% endif %}
 </div>
 {% endblock %}

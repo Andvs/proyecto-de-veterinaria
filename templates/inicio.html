@@ -32,8 +32,8 @@
 
       {% if request.user.is_authenticated and request.user.perfil and request.user.perfil.tipo == 'ADMINISTRADOR' %}
         <li>
-          <a href="{% url 'registrar_paso1' %}" class="nav-link text-white {% if '/registro/' in request.path %}active bg-primary{% endif %}">
-            <i class="bi bi-person-add me-2"></i>Registrar Usuario
+          <a href="{% url 'usuarios_list' %}" class="nav-link text-white {% if '/usuarios/' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-people me-2"></i>Usuarios
           </a>
         </li>
         <li>
@@ -62,13 +62,8 @@
           </a>
         </li>
         <li>
-          <a href="#" class="nav-link text-white">
-            <i class="bi bi-heart-pulse me-2"></i>Consultas
-          </a>
-        </li>
-        <li>
-          <a href="#" class="nav-link text-white">
-            <i class="bi bi-cash-coin me-2"></i>Reportes Financieros
+          <a href="{% url 'agenda_veterinarios' %}" class="nav-link text-white {% if '/veterinarios/agenda' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-calendar3-range me-2"></i>Agenda Veterinarios
           </a>
         </li>
       {% endif %}
@@ -86,6 +81,11 @@
         <li>
           <a href="{% url 'citas_list' %}" class="nav-link text-white {% if '/citas/' in request.path %}active bg-primary{% endif %}">
             <i class="bi bi-calendar-check me-2"></i>Agenda de Citas
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'agenda_veterinarios' %}" class="nav-link text-white {% if '/veterinarios/agenda' in request.path %}active bg-primary{% endif %}">
+            <i class="bi bi-calendar3-range me-2"></i>Agenda Veterinarios
           </a>
         </li>
       {% endif %}

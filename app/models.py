@@ -109,9 +109,55 @@ class Cita(models.Model):
     observaciones = models.CharField(max_length=250, blank=True)
 
     def clean(self):
-        
-        if self.estado == 'PROGRAMADO' and self.fecha_hora < timezone.now():
-            raise ValidationError('No se puede agendar una cita en el pasado.')
+        # 0) Si no hay fecha, no validamos más
+        if not self.fecha_hora:
+            return
+
+        # Normalizar tz (por si viene naive)
+        cita_dt = self.fecha_hora
+        if timezone.is_naive(cita_dt):
+            cita_dt = timezone.make_aware(cita_dt, timezone.get_current_timezone())
+
+        # 1) No en el pasado (si está programada)
+        if self.estado == 'PROGRAMADO' and cita_dt < timezone.localtime():
+            raise ValidationError({'fecha_hora': 'No se puede agendar una cita en el pasado.'})
+
+        # 2) Mascota activa
+        if self.mascota and not self.mascota.activo:
+            raise ValidationError({'mascota': 'No se puede agendar una cita para una mascota inactiva.'})
+
+        # 3) Solo 1 cita activa (sin completar/cancelar) por mascota+veterinario
+        if self.mascota and self.veterinario and self.estado == 'PROGRAMADO':
+            qs = Cita.objects.filter(
+                mascota=self.mascota,
+                veterinario=self.veterinario,
+                estado='PROGRAMADO',
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError('La mascota ya tiene una cita activa con este veterinario.')
+
+        # 4) Máximo 8 citas PROGRAMADAS por día y veterinario
+        if self.veterinario and self.estado == 'PROGRAMADO':
+            dia = cita_dt.date()
+            inicio_dia = timezone.make_aware(
+                timezone.datetime.combine(dia, timezone.datetime.min.time()),
+                timezone.get_current_timezone()
+            )
+            fin_dia = timezone.make_aware(
+                timezone.datetime.combine(dia, timezone.datetime.max.time()),
+                timezone.get_current_timezone()
+            )
+            qs_dia = Cita.objects.filter(
+                veterinario=self.veterinario,
+                estado='PROGRAMADO',
+                fecha_hora__range=(inicio_dia, fin_dia)
+            )
+            if self.pk:
+                qs_dia = qs_dia.exclude(pk=self.pk)
+            if qs_dia.count() >= 8:
+                raise ValidationError({'fecha_hora': 'El veterinario ya tiene 8 citas programadas en ese día.'})
 
     def __str__(self):
         return f'Cita {self.estado} - {self.mascota} con {self.veterinario}'

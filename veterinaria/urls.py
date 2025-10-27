@@ -48,4 +48,10 @@ urlpatterns = [
     path('mis-mascotas/historial/', v.mis_mascotas_historial, name='mis_mascotas_historial'),
     
     path("logout/", v.cerrar_sesion, name="logout"),
+    
+    path('veterinarios/agenda/', v.agenda_veterinarios, name='agenda_veterinarios'),
+    path('veterinarios/<int:vet_id>/agenda/', v.agenda_veterinario_detalle, name='agenda_veterinario_detalle'),
+    
+    path('usuarios/', v.usuarios_list, name='usuarios_list'),
+    path("usuarios/registrar_cliente/", v.registrar_cliente_directo, name="registrar_cliente_directo"),
 ]

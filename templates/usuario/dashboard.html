@@ -1,5 +1,223 @@
 {% extends "inicio.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block main %}
-  <h3 class="mb-3">Bienvenido/a, {{ request.user.username }}</h3>
-  <p>Rol: {{ request.user.perfil.tipo }}</p>
+
+<h3 class="mb-3">Dashboard</h3>
+<p class="text-muted mb-4">Rol: <strong>{{ request.user.perfil.tipo }}</strong></p>
+
+{# ======================== VETERINARIO ======================== #}
+{% if tipo == "VETERINARIO" %}
+  <h5 class="mb-3">Mis citas de hoy</h5>
+  {% if citas_hoy %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Hora</th>
+            <th>Mascota</th>
+            <th>Dueño</th>
+            <th>Motivo</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in citas_hoy %}
+          <tr>
+            <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>{{ c.mascota.nombre }}</td>
+            <td>{{ c.mascota.dueno.nombre }} {{ c.mascota.dueno.apellido }}</td>
+            <td>{{ c.motivo }}</td>
+            <td>
+                    {% if c.estado == 'PROGRAMADO' %}
+                      <span class="badge bg-primary">Programada</span>
+                    {% elif c.estado == 'COMPLETADO' %}
+                      <span class="badge bg-success">Completada</span>
+                      {% if c.consulta %}
+                        <br><small class="text-success"><i class="bi bi-check-circle-fill"></i> Con consulta</small>
+                      {% endif %}
+                    {% elif c.estado == 'CANCELADO' %}
+                      <span class="badge bg-danger">Cancelada</span>
+                    {% endif %}
+              </td>
+              <td class="text-end">
+                    <a href="{% url 'cita_detalle' c.id %}" class="btn btn-sm btn-outline-info">
+                      <i class="bi bi-eye"></i> Ver Detalle
+                    </a>
+                    
+                    {% if request.user.perfil.tipo in 'RECEPCIONISTA,ADMINISTRADOR' %}
+                      {% if c.estado == 'PROGRAMADO' %}
+                        <a href="{% url 'citas_editar' c.id %}" class="btn btn-sm btn-outline-primary">
+                          <i class="bi bi-pencil-square"></i> Editar
+                        </a>
+                        <a href="{% url 'citas_cancelar' c.id %}" class="btn btn-sm btn-outline-danger"
+                            onclick="return confirm('¿Cancelar esta cita?');">
+                          <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                      {% endif %}
+                    {% endif %}
+                    
+                    {% if request.user.perfil.tipo in 'VETERINARIO,ADMINISTRADOR' %}
+                      {% if c.estado == 'PROGRAMADO' %}
+                        <a href="{% url 'citas_completar' c.id %}" class="btn btn-sm btn-outline-success"
+                            onclick="return confirm('¿Marcar como completada?');">
+                          <i class="bi bi-check-circle"></i> Completar
+                        </a>
+                      {% endif %}
+                    {% endif %}
+              </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">No tienes citas hoy.</div>
+  {% endif %}
+{% endif %}
+
+{# ====================== RECEPCIONISTA ======================= #}
+{% if tipo == "RECEPCIONISTA" %}
+  <h5 class="mb-3">Citas programadas</h5>
+  {% if citas_programadas %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha/Hora</th>
+            <th>Mascota</th>
+            <th>Dueño</th>
+            <th>Veterinario</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in citas_programadas %}
+          <tr>
+            <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>{{ c.mascota.nombre }}</td>
+            <td>{{ c.mascota.dueno.nombre }} {{ c.mascota.dueno.apellido }}</td>
+            <td>{{ c.veterinario.nombre }} {{ c.veterinario.apellido }}</td>
+            <td><span class="badge bg-warning text-dark">{{ c.estado }}</span></td>
+            <td>
+              <a href="{% url 'citas_editar' c.id %}" class="btn btn-outline-secondary btn-sm">Editar</a>
+              <a href="{% url 'citas_cancelar' c.id %}" class="btn btn-outline-danger btn-sm"
+                 onclick="return confirm('¿Cancelar esta cita?');">Cancelar</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">No hay citas programadas.</div>
+  {% endif %}
+{% endif %}
+
+{# ========================= CLIENTE ========================== #}
+{% if tipo == "CLIENTE" %}
+  <h5 class="mb-3">Mis próximas citas</h5>
+  {% if citas_proximas %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Fecha/Hora</th>
+            <th>Mascota</th>
+            <th>Veterinario</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for c in citas_proximas %}
+          <tr>
+            <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+            <td>{{ c.mascota.nombre }}</td>
+            <td>{{ c.veterinario.nombre }} {{ c.veterinario.apellido }}</td>
+            <td>
+                    {% if c.estado == 'PROGRAMADO' %}
+                      <span class="badge bg-primary">Programada</span>
+                    {% elif c.estado == 'COMPLETADO' %}
+                      <span class="badge bg-success">Completada</span>
+                      {% if c.consulta %}
+                        <br><small class="text-success"><i class="bi bi-check-circle-fill"></i> Con consulta</small>
+                      {% endif %}
+                    {% elif c.estado == 'CANCELADO' %}
+                      <span class="badge bg-danger">Cancelada</span>
+                    {% endif %}
+            </td>
+            
+            <td class="text-end">
+                    <a href="{% url 'cita_detalle' c.id %}" class="btn btn-sm btn-outline-info">
+                      <i class="bi bi-eye"></i> Ver Detalle
+                    </a>
+            </td>
+            
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">No tienes citas próximas.</div>
+  {% endif %}
+{% endif %}
+
+{# ========================= ADMIN ============================ #}
+{% if tipo == "ADMINISTRADOR" %}
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <h5 class="mb-3">Estadísticas generales</h5>
+      <table class="table table-sm table-bordered">
+        <tbody>
+          <tr><th>Clientes</th><td>{{ stats.clientes }}</td></tr>
+          <tr><th>Veterinarios</th><td>{{ stats.veterinarios }}</td></tr>
+          <tr><th>Recepcionistas</th><td>{{ stats.recepcionistas }}</td></tr>
+          <tr><th>Mascotas</th><td>{{ stats.mascotas }}</td></tr>
+          <tr><th>Citas (total)</th><td>{{ stats.citas_total }}</td></tr>
+          <tr><th>Programadas</th><td>{{ stats.citas_programadas }}</td></tr>
+          <tr><th>Completadas</th><td>{{ stats.citas_completadas }}</td></tr>
+          <tr><th>Canceladas</th><td>{{ stats.citas_canceladas }}</td></tr>
+          <tr><th>Citas hoy</th><td>{{ stats.citas_hoy }}</td></tr>
+          <tr><th>Citas semana</th><td>{{ stats.citas_semana }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <h5 class="mb-3">Próximas citas (top 20)</h5>
+      {% if citas_proximas %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha/Hora</th>
+                <th>Mascota</th>
+                <th>Dueño</th>
+                <th>Veterinario</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for c in citas_proximas %}
+              <tr>
+                <td>{{ c.fecha_hora|date:"d/m/Y H:i" }}</td>
+                <td>{{ c.mascota.nombre }}</td>
+                <td>{{ c.mascota.dueno.nombre }} {{ c.mascota.dueno.apellido }}</td>
+                <td>{{ c.veterinario.nombre }} {{ c.veterinario.apellido }}</td>
+                <td><span class="badge bg-warning text-dark">{{ c.estado }}</span></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-info">No hay próximas citas.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
 {% endblock main %}

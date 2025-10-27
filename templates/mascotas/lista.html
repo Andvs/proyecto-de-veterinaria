@@ -49,6 +49,9 @@
                     <a href="{% url 'mascotas_editar' m.id %}" class="btn btn-sm btn-outline-primary">
                       <i class="bi bi-pencil-square"></i> Editar
                     </a>
+                    <a href="{% url 'historial_medico' m.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-journal-medical"></i> Ver Historial
+                    </a>
                     {% if m.activo %}
                       <a href="{% url 'mascotas_deshabilitar' m.id %}" class="btn btn-sm btn-outline-warning"
                          onclick="return confirm('¿Deshabilitar a {{ m.nombre }}?');">
