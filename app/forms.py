@@ -1,13 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 from .models import Mascota, Cita, Consulta, Cliente, Veterinario, Recepcionista, Perfil
 
 
-# ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE REGISTRO PRINCIPAL (PASO 1)
-# ----------------------------------------------------------------------
 class RegistroForm(UserCreationForm):
     tipo = forms.ChoiceField(
         choices=[
@@ -45,9 +43,7 @@ class RegistroForm(UserCreationForm):
         return email
 
 
-# ----------------------------------------------------------------------
-# FORMULARIO DE VETERINARIO (PASO 2)
-# ----------------------------------------------------------------------
+
 class VeterinarioForm(forms.ModelForm):
     class Meta:
         model = Veterinario
@@ -68,9 +64,7 @@ class VeterinarioForm(forms.ModelForm):
         }
 
 
-# ----------------------------------------------------------------------
-#  FORMULARIO DE CLIENTE (PASO 2)
-# ----------------------------------------------------------------------
+
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
@@ -83,11 +77,11 @@ class ClienteForm(forms.ModelForm):
         }
 
 class RegistroClienteRecepForm(UserCreationForm):
-    # Campos extra para Perfil
+    
     rut = forms.CharField(label="RUT / DNI", max_length=12)
     telefono = forms.CharField(label="Teléfono", max_length=15)
 
-    # Campos de Cliente
+    
     nombre = forms.CharField(label="Nombre", max_length=45)
     apellido = forms.CharField(label="Apellido", max_length=45)
     direccion = forms.CharField(label="Dirección", max_length=100, required=False)
@@ -106,7 +100,7 @@ class RegistroClienteRecepForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Estilo Bootstrap a los campos del UserCreationForm
+        
         for name, field in self.fields.items():
             if not field.widget.attrs.get("class"):
                 field.widget.attrs["class"] = "form-control"
@@ -123,9 +117,7 @@ class RegistroClienteRecepForm(UserCreationForm):
             raise forms.ValidationError("Ya existe un perfil con este RUT/DNI.")
         return rut
 
-# ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE MASCOTA
-# ----------------------------------------------------------------------
+
 class MascotaForm(forms.ModelForm):
     class Meta:
         model = Mascota
@@ -148,9 +140,7 @@ class MascotaForm(forms.ModelForm):
             self.fields.pop('dueno')
 
 
-# ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE RECEPCIONISTA (PASO 2)
-# ----------------------------------------------------------------------
+
 class RecepcionistaForm(forms.ModelForm):
     class Meta:
         model = Recepcionista
@@ -166,10 +156,6 @@ class RecepcionistaForm(forms.ModelForm):
             "telefono": forms.TextInput(attrs={"class": "form-control"}),
         }
 
-
-# ----------------------------------------------------------------------
-# 🔹 FORMULARIO DE Citas (PASO 2)
-# ----------------------------------------------------------------------
 
 class CitaForm(forms.ModelForm):
     dueno = forms.ModelChoiceField(
@@ -211,7 +197,7 @@ class CitaForm(forms.ModelForm):
         self.order_fields(['dueno', 'mascota', 'veterinario', 'fecha_hora', 'motivo', 'observaciones'])
     
     def clean_fecha_hora(self):
-        from django.utils import timezone
+        
         fecha_hora = self.cleaned_data.get('fecha_hora')
         
         if fecha_hora and fecha_hora < timezone.now():
@@ -228,7 +214,6 @@ class CitaForm(forms.ModelForm):
         return mascota
     
     def clean(self):
-        from django.utils import timezone
         from datetime import timedelta
         
         cleaned_data = super().clean()
@@ -316,7 +301,6 @@ class ConsultaForm(forms.ModelForm):
         return costo
     
     def clean_proxima_cita(self):
-        from django.utils import timezone
         proxima_cita = self.cleaned_data.get('proxima_cita')
         
         if proxima_cita and proxima_cita < timezone.now().date():

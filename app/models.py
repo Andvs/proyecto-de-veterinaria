@@ -7,7 +7,7 @@ from django_mysql.models import EnumField
 from django.conf import settings
 
 
-# ── Validadores básicos
+
 rut_valido = RegexValidator(r'^[0-9A-Za-z.\-]{7,12}$', 'RUT/DNI inválido')
 telefono_valido = RegexValidator(r'^\+?[0-9]{8,15}$', 'Teléfono inválido')
 
@@ -15,7 +15,7 @@ telefono_valido = RegexValidator(r'^\+?[0-9]{8,15}$', 'Teléfono inválido')
 
 class Perfil(models.Model):
     tipo = EnumField(
-        choices=['ADMINISTRADOR', 'VETERINARIO', 'RECEPCIONISTA', 'CLIENTE'],  # ← corregido
+        choices=['ADMINISTRADOR', 'VETERINARIO', 'RECEPCIONISTA', 'CLIENTE'],  
         default='CLIENTE'
     )
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='perfil')
@@ -37,7 +37,7 @@ class Cliente(models.Model):
     fecha_registro = models.DateField(auto_now_add=True)
 
     def clean(self):
-        # si aún no le asignan perfil, no valides (se valida al guardar con perfil)
+        
         if not self.perfil_id:
             return
         if self.perfil.tipo != 'CLIENTE':
@@ -59,7 +59,7 @@ class Veterinario(models.Model):
     telefono_laboral = models.CharField(max_length=15, blank=True)
 
     def clean(self):
-        # evita acceder a self.perfil si no está puesto
+
         if not self.perfil_id:
             return
         if self.perfil.tipo != 'VETERINARIO':
@@ -98,7 +98,7 @@ class Mascota(models.Model):
 class Cita(models.Model):
     
     estado = EnumField(
-    choices=['PROGRAMADO', 'COMPLETADO', 'CANCELADO'],  # corregido
+    choices=['PROGRAMADO', 'COMPLETADO', 'CANCELADO'],  
     default='PROGRAMADO'
 )
 
@@ -109,31 +109,31 @@ class Cita(models.Model):
     observaciones = models.CharField(max_length=250, blank=True)
 
 def clean(self):
-    # 0) Si no hay mascota asignada, saltamos las validaciones (se valida en el formulario)
+    
     if not self.mascota_id:
         return
     
-    # 0.1) Si no hay fecha, no validamos más
+    
     if not self.fecha_hora:
         return
 
-    # Normalizar tz (por si viene naive)
+    
     cita_dt = self.fecha_hora
     if timezone.is_naive(cita_dt):
         cita_dt = timezone.make_aware(cita_dt, timezone.get_current_timezone())
 
-    # 1) No en el pasado (si está programada)
+    
     if self.estado == 'PROGRAMADO' and cita_dt < timezone.localtime():
         raise ValidationError({'fecha_hora': 'No se puede agendar una cita en el pasado.'})
 
-    # 2) Mascota activa
+    
     try:
         if self.mascota and not self.mascota.activo:
             raise ValidationError({'mascota': 'No se puede agendar una cita para una mascota inactiva.'})
     except:
         pass
 
-    # 3) Solo 1 cita activa (sin completar/cancelar) por mascota+veterinario
+    
     if self.mascota and self.veterinario and self.estado == 'PROGRAMADO':
         qs = Cita.objects.filter(
             mascota=self.mascota,
@@ -145,7 +145,7 @@ def clean(self):
         if qs.exists():
             raise ValidationError('La mascota ya tiene una cita activa con este veterinario.')
 
-    # 4) Máximo 8 citas PROGRAMADAS por día y veterinario
+    
     if self.veterinario and self.estado == 'PROGRAMADO':
         dia = cita_dt.date()
         inicio_dia = timezone.make_aware(

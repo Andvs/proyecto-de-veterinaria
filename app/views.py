@@ -8,14 +8,12 @@ from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 from datetime import date
+from django.core.exceptions import ValidationError
 
-from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm, CitaForm, ConsultaForm
+from app.forms import RegistroForm, VeterinarioForm, ClienteForm, MascotaForm, RecepcionistaForm, CitaForm, ConsultaForm, RegistroClienteRecepForm
 from .models import Perfil, Mascota, Cliente, Recepcionista, Veterinario, Cita, Consulta
-from app.forms import RegistroClienteRecepForm
 
-# ============================================================
-#             REGISTRO DE USUARIOS
-# ============================================================
+
 
 SESSION_KEY = "registro_parcial"
 
@@ -102,10 +100,7 @@ def registrar_paso2_cli(request):
 
 @login_required
 def registrar_cliente_directo(request):
-    """
-    Permite al recepcionista registrar directamente un usuario tipo CLIENTE.
-    El tipo se fija en la creación del Perfil (no se muestra en el formulario).
-    """
+    
     tipo = getattr(request.user.perfil, "tipo", None)
     if tipo != "RECEPCIONISTA":
         messages.error(request, "No tienes permisos para registrar clientes.")
@@ -115,12 +110,12 @@ def registrar_cliente_directo(request):
         form = RegistroClienteRecepForm(request.POST)
         if form.is_valid():
             try:
-                # 1) Crear usuario (con contraseña encriptada por UserCreationForm)
-                user = form.save(commit=False)  # crea instancia User sin guardar
+                
+                user = form.save(commit=False)  
                 user.email = form.cleaned_data["email"]
                 user.save()
 
-                # 2) Crear Perfil con tipo fijo "CLIENTE"
+                
                 perfil = Perfil.objects.create(
                     user=user,
                     tipo="CLIENTE",
@@ -128,7 +123,7 @@ def registrar_cliente_directo(request):
                     telefono=form.cleaned_data["telefono"],
                 )
 
-                # 3) Crear Cliente con datos del form
+                
                 Cliente.objects.create(
                     perfil=perfil,
                     nombre=form.cleaned_data["nombre"],
@@ -188,7 +183,7 @@ def registrar_paso2_recep(request):
 
 
 def registrar_paso2_vet(request):
-    """Paso 2: completar datos de veterinario. Se guarda todo solo si se completa correctamente."""
+    
     datos = request.session.get(SESSION_KEY)
     if not datos or datos.get("tipo") != "VETERINARIO":
         messages.error(request, "Debes iniciar el registro desde el primer paso.")
@@ -258,7 +253,7 @@ def registrar_finalizar_sin_detalle(request):
 
 @login_required
 def usuarios_list(request):
-    # Permisos: Admin y Recepcionista pueden ver la lista
+    
     tipo = getattr(request.user.perfil, "tipo", None)
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para ver usuarios.")
@@ -266,7 +261,7 @@ def usuarios_list(request):
 
     q = request.GET.get("q", "").strip()
 
-    # Trae perfiles relacionados (siempre que existan)
+    
     usuarios = (User.objects
                 .select_related("perfil")
                 .order_by("username"))
@@ -289,9 +284,7 @@ def usuarios_list(request):
         "q": q,
     })
     
-# ============================================================
-#             LOGIN / LOGOUT / DASHBOARD
-# ============================================================
+
 
 def iniciarSesion(request):
     if request.method == "POST":
@@ -301,13 +294,13 @@ def iniciarSesion(request):
         if user:
             login(request, user)
             messages.info(request, "Has iniciado sesión correctamente.")
-            return redirect("dashboard")  # redirección simple
+            return redirect("dashboard")  
         messages.error(request, "Credenciales incorrectas.")
     return render(request, "usuario/login.html")
 
 
 def cerrar_sesion(request):
-    logout(request)  # elimina la sesión actual del usuario
+    logout(request)  
     messages.info(request, "Has cerrado sesión correctamente.")
     return redirect("iniciarSesion")
 
@@ -349,7 +342,7 @@ def dashboard(request):
         ctx["citas_proximas"] = citas_proximas[:50]
 
     elif tipo == "ADMINISTRADOR":
-        # Resumen
+        
         stats = {
             "clientes": Cliente.objects.count(),
             "veterinarios": Veterinario.objects.count(),
@@ -362,7 +355,7 @@ def dashboard(request):
             "citas_hoy": Cita.objects.filter(fecha_hora__range=(inicio_hoy, fin_hoy)).count(),
         }
 
-        # Semana actual (lunes-domingo)
+        
         inicio_semana = hoy - timedelta(days=hoy.weekday())
         fin_semana = inicio_semana + timedelta(days=6)
         inicio_semana_dt = timezone.make_aware(
@@ -383,10 +376,6 @@ def dashboard(request):
     return render(request, "usuario/dashboard.html", ctx)
 
 
-# ============================================================
-#             FUNCIONES AUXILIARES PARA DESHABILITAR/HABILITAR
-# ============================================================
-
 def _cambiar_estado_usuario(perfil, activo: bool):
     user = perfil.user
     if user.is_active != activo:
@@ -395,16 +384,9 @@ def _cambiar_estado_usuario(perfil, activo: bool):
     return user.is_active
 
 
-# ============================================================
-#             SECCIÓN MASCOTAS 🐾
-# ============================================================
-
 @login_required
 def mascotas_list(request):
-    """
-    Recepcionista/Admin: ven todas las mascotas.
-    Cliente: solo ve sus propias mascotas.
-    """
+   
     tipo = request.user.perfil.tipo
     q = request.GET.get('q', '').strip()
 
@@ -483,9 +465,7 @@ def mascotas_editar(request, pk):
 
 @login_required
 def mascotas_habilitar(request, pk):
-    """
-    Operación administrativa: solo Recepcionista y Admin.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
         messages.error(request, "No tienes permisos para habilitar mascotas.")
@@ -503,9 +483,6 @@ def mascotas_habilitar(request, pk):
 
 @login_required
 def mascotas_deshabilitar(request, pk):
-    """
-    Operación administrativa: solo Recepcionista y Admin.
-    """
     tipo = request.user.perfil.tipo
     if tipo not in ["RECEPCIONISTA", "ADMINISTRADOR"]:
         messages.error(request, "No tienes permisos para deshabilitar mascotas.")
@@ -521,14 +498,9 @@ def mascotas_deshabilitar(request, pk):
     return redirect('mascotas_list')
 
 
-# ============================================================
-#             SECCIÓN CLIENTES 👤
-# ============================================================
 @login_required
 def clientes_list(request):
-    """
-    Solo Administrador y Recepcionista pueden ver la lista de clientes.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para ver los clientes.")
@@ -548,9 +520,7 @@ def clientes_list(request):
 
 @login_required
 def clientes_editar(request, pk):
-    """
-    Solo Administrador y Recepcionista pueden editar clientes.
-    """
+  
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para editar clientes.")
@@ -570,9 +540,7 @@ def clientes_editar(request, pk):
 
 @login_required
 def clientes_habilitar(request, pk):
-    """
-    Solo Administrador y Recepcionista pueden habilitar clientes.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para habilitar clientes.")
@@ -591,9 +559,7 @@ def clientes_habilitar(request, pk):
 
 @login_required
 def clientes_deshabilitar(request, pk):
-    """
-    Solo Administrador y Recepcionista pueden deshabilitar clientes.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para deshabilitar clientes.")
@@ -610,15 +576,9 @@ def clientes_deshabilitar(request, pk):
     return redirect('clientes_list')
 
 
-# ============================================================
-#             SECCIÓN VETERINARIOS 🩺
-# ============================================================
-
 @login_required
 def veterinarios_list(request):
-    """
-    Solo Administrador puede ver la lista completa de veterinarios.
-    """
+   
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "Solo el administrador puede gestionar veterinarios.")
@@ -640,9 +600,7 @@ def veterinarios_list(request):
 
 @login_required
 def veterinarios_editar(request, pk):
-    """
-    Solo Administrador puede editar veterinarios.
-    """
+   
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para editar veterinarios.")
@@ -662,9 +620,7 @@ def veterinarios_editar(request, pk):
 
 @login_required
 def veterinarios_habilitar(request, pk):
-    """
-    Solo Administrador puede habilitar veterinarios.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para habilitar veterinarios.")
@@ -683,7 +639,7 @@ def veterinarios_habilitar(request, pk):
 
 @login_required
 def veterinarios_deshabilitar(request, pk):
-    # Solo admin puede deshabilitar
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para deshabilitar veterinarios.")
@@ -692,7 +648,7 @@ def veterinarios_deshabilitar(request, pk):
     vet = get_object_or_404(Veterinario, pk=pk)
     user = vet.perfil.user
 
-    # ❗ Bloquear si tiene citas PROGRAMADAS o consultas registradas
+    
     tiene_programadas = Cita.objects.filter(veterinario=vet, estado='PROGRAMADO').exists()
 
     if tiene_programadas:
@@ -702,7 +658,7 @@ def veterinarios_deshabilitar(request, pk):
         )
         return redirect('veterinarios_list')
 
-    # Si pasa los chequeos, procede a deshabilitar
+    
     if user.is_active:
         user.is_active = False
         user.save()
@@ -714,9 +670,7 @@ def veterinarios_deshabilitar(request, pk):
 
 @login_required
 def agenda_veterinarios(request):
-    """
-    Admin y Recepcionista: ven tarjetas de veterinarios para abrir su agenda.
-    """
+   
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para ver la agenda de veterinarios.")
@@ -738,16 +692,14 @@ def agenda_veterinarios(request):
 
 @login_required
 def agenda_veterinario_detalle(request, vet_id):
-    """
-    Agenda de un veterinario: próximas citas, con filtro por hoy/semana/todas.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo not in ["ADMINISTRADOR", "RECEPCIONISTA"]:
         messages.error(request, "No tienes permisos para ver esta agenda.")
         return redirect("dashboard")
 
     vet = get_object_or_404(Veterinario, pk=vet_id)
-    filtro = request.GET.get('filtro', 'hoy')  # hoy | semana | todas
+    filtro = request.GET.get('filtro', 'hoy') 
     now = timezone.localtime()
     hoy = now.date()
 
@@ -763,7 +715,7 @@ def agenda_veterinario_detalle(request, vet_id):
         inicio_sem_dt = timezone.make_aware(timezone.datetime.combine(inicio_sem, timezone.datetime.min.time()))
         fin_sem_dt = timezone.make_aware(timezone.datetime.combine(fin_sem, timezone.datetime.max.time()))
         citas = citas.filter(fecha_hora__range=(inicio_sem_dt, fin_sem_dt))
-    # 'todas' no filtra adicional
+  
 
     return render(request, 'veterinarios/agenda_detalle.html', {
         'vet': vet,
@@ -771,15 +723,11 @@ def agenda_veterinario_detalle(request, vet_id):
         'filtro': filtro
     })
 
-# ============================================================
-#             SECCIÓN RECEPCIONISTAS 🧾
-# ============================================================
+
 
 @login_required
 def recepcionistas_list(request):
-    """
-    Solo Administrador puede ver la lista completa de recepcionistas.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "Solo el administrador puede gestionar recepcionistas.")
@@ -799,9 +747,7 @@ def recepcionistas_list(request):
 
 @login_required
 def recepcionistas_editar(request, pk):
-    """
-    Solo Administrador puede editar recepcionistas.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para editar recepcionistas.")
@@ -821,9 +767,7 @@ def recepcionistas_editar(request, pk):
 
 @login_required
 def recepcionistas_habilitar(request, pk):
-    """
-    Solo Administrador puede habilitar recepcionistas.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para habilitar recepcionistas.")
@@ -842,9 +786,7 @@ def recepcionistas_habilitar(request, pk):
 
 @login_required
 def recepcionistas_deshabilitar(request, pk):
-    """
-    Solo Administrador puede deshabilitar recepcionistas.
-    """
+    
     tipo = request.user.perfil.tipo
     if tipo != "ADMINISTRADOR":
         messages.error(request, "No tienes permisos para deshabilitar recepcionistas.")
@@ -861,14 +803,14 @@ def recepcionistas_deshabilitar(request, pk):
     return redirect('recepcionistas_list')
 
 
-#Citas
+
 
 @login_required
 def citas_list(request):
     
     tipo = request.user.perfil.tipo
     q = request.GET.get('q', '').strip()
-    filtro = request.GET.get('filtro', 'todas')  # ← NUEVO
+    filtro = request.GET.get('filtro', 'todas') 
 
     if tipo == "VETERINARIO":
         veterinario = Veterinario.objects.filter(perfil=request.user.perfil).first()
@@ -888,7 +830,7 @@ def citas_list(request):
         messages.error(request, "No tienes permisos para ver las citas.")
         return redirect("dashboard")
     
-    # ⬇️ ESTA ES LA PARTE NUEVA (filtros de fecha) ⬇️
+   
     hoy = timezone.now().date()
     
     if filtro == 'hoy':
@@ -901,7 +843,7 @@ def citas_list(request):
         inicio_semana_dt = timezone.make_aware(timezone.datetime.combine(inicio_semana, timezone.datetime.min.time()))
         fin_semana_dt = timezone.make_aware(timezone.datetime.combine(fin_semana, timezone.datetime.max.time()))
         citas = citas.filter(fecha_hora__gte=inicio_semana_dt, fecha_hora__lte=fin_semana_dt)
-    # ⬆️ HASTA AQUÍ LA PARTE NUEVA ⬆️
+  
 
     if q:
         citas = citas.filter(
@@ -917,7 +859,7 @@ def citas_list(request):
     return render(request, 'citas/lista.html', {
         'page_obj': page_obj,
         'q': q,
-        'filtro': filtro  # ← NUEVO (pasamos el filtro al template)
+        'filtro': filtro  
     })
 
 
@@ -933,7 +875,7 @@ def citas_crear(request):
     if request.method == 'POST':
         form = CitaForm(request.POST)
         
-        # Filtrar las mascotas según el dueño seleccionado
+      
         if dueno_id:
             form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
         else:
@@ -942,7 +884,7 @@ def citas_crear(request):
         if form.is_valid():
             cita = form.save(commit=False)
             
-            # ✅ VALIDACIÓN ADICIONAL: Verificar que mascota existe
+            
             if not cita.mascota:
                 form.add_error('mascota', 'Debes seleccionar una mascota para agendar la cita.')
                 messages.error(request, 'Revisa los errores del formulario.')
@@ -959,7 +901,7 @@ def citas_crear(request):
                     messages.error(request, 'Revisa los errores del formulario.')
     else:
         form = CitaForm()
-        # También filtrar en GET
+        
         if dueno_id:
             form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
         else:
@@ -994,7 +936,7 @@ def citas_editar(request, pk):
     if request.method == 'POST':
         form = CitaForm(request.POST, instance=cita)
         
-        # Filtrar las mascotas según el dueño seleccionado
+       
         if dueno_id:
             form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
         else:
@@ -1003,7 +945,7 @@ def citas_editar(request, pk):
         if form.is_valid():
             cita_edit = form.save(commit=False)
             
-            # ✅ VALIDACIÓN ADICIONAL: Verificar que mascota existe
+            
             if not cita_edit.mascota:
                 form.add_error('mascota', 'Debes seleccionar una mascota para la cita.')
                 messages.error(request, 'Revisa los errores del formulario.')
@@ -1020,7 +962,7 @@ def citas_editar(request, pk):
                     messages.error(request, 'Revisa los errores del formulario.')
     else:
         form = CitaForm(instance=cita)
-        # También filtrar en GET
+        
         if dueno_id:
             form.fields['mascota'].queryset = Mascota.objects.filter(activo=True, dueno_id=dueno_id)
     
@@ -1131,7 +1073,7 @@ def consulta_registrar(request, cita_id):
             cita.estado = 'COMPLETADO'
             cita.save()
             
-            # ⬇️ ESTA ES LA PARTE NUEVA ⬇️
+            
             if consulta.proxima_cita:
                 from datetime import datetime, time
                 fecha_proxima = consulta.proxima_cita
@@ -1150,7 +1092,7 @@ def consulta_registrar(request, cita_id):
                 messages.success(request, f'Consulta registrada y próxima cita agendada para el {fecha_proxima.strftime("%d/%m/%Y")} a las 10:00.')
             else:
                 messages.success(request, 'Consulta registrada correctamente.')
-            # ⬆️ HASTA AQUÍ LA PARTE NUEVA ⬆️
+            
             
             return redirect('cita_detalle', pk=cita_id)
     else:
@@ -1239,17 +1181,17 @@ def mis_mascotas_historial(request):
     for m in mascotas:
         edad_texto = "—"
         if m.fecha_nacimiento:
-            # cálculo de años
+            
             anios = hoy.year - m.fecha_nacimiento.year - (
                 (hoy.month, hoy.day) < (m.fecha_nacimiento.month, m.fecha_nacimiento.day)
             )
             if anios > 0:
                 edad_texto = f"{anios} año{'s' if anios != 1 else ''}"
             else:
-                # calcular diferencia en meses
+                
                 meses = (hoy.year - m.fecha_nacimiento.year) * 12 + (hoy.month - m.fecha_nacimiento.month)
                 if hoy.day < m.fecha_nacimiento.day:
-                    meses -= 1  # aún no cumple el mes completo
+                    meses -= 1  
                 edad_texto = f"{meses} mes{'es' if meses != 1 else ''}"
                 if meses < 0:
                     edad_texto = "0 meses"
