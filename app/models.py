@@ -55,7 +55,7 @@ class Veterinario(models.Model):
     nombre = models.CharField(max_length=45)
     apellido = models.CharField(max_length=45)
     especialidad = models.CharField(max_length=100)
-    licencia_profesional = models.CharField(max_length=100, unique=True)
+    licencia_profesional = models.CharField(max_length=100, unique=False)
     telefono_laboral = models.CharField(max_length=15, blank=True)
 
     def clean(self):
